@@ -148,7 +148,7 @@ type LibvirtDomainManager struct {
 
 	hotplugHostDevicesInProgress chan struct{}
 	memoryDumpInProgress         chan struct{}
-	attachDiskChannels           map[string]chan struct{}
+	cancelDiskDetachChannels     map[string]chan struct{}
 
 	virtShareDir             string
 	ephemeralDiskDir         string
@@ -211,7 +211,7 @@ func newLibvirtDomainManager(connection cli.Connection, virtShareDir, ephemeralD
 		cancelSafetyUnfreezeChan: make(chan struct{}),
 		migrateInfoStats:         &stats.DomainJobInfo{},
 		metadataCache:            metadataCache,
-		attachDiskChannels:       make(map[string]chan struct{}),
+		cancelDiskDetachChannels: make(map[string]chan struct{}),
 	}
 
 	manager.hotplugHostDevicesInProgress = make(chan struct{}, maxConcurrentHotplugHostDevices)
@@ -930,18 +930,25 @@ func (l *LibvirtDomainManager) SyncVMI(vmi *v1.VirtualMachineInstance, allowEmul
 		return nil, err
 	}
 
+	// Get list of disks that should be detached
 	detachedDisks := getDetachedDisks(vmi.Name, vmi.Namespace, oldSpec.Devices.Disks, domain.Spec.Devices.Disks)
-	for attachDiskChannelName, attachDiskChannel := range l.attachDiskChannels {
-		if _, ok := detachedDisks[attachDiskChannelName]; !ok {
-			logger.V(hotplugDetachmentVerbosity).Infof("Hotplug detach stil requested, continue grace period = [%+v]", attachDiskChannelName)
+
+	// Check list of detached disks against the list of detachment goroutines.  Cancel the goroutines
+	// that are no longer needed.
+	for cancelDiskDetachChannelName, cancelDiskDetachChannel := range l.cancelDiskDetachChannels {
+		if _, ok := detachedDisks[cancelDiskDetachChannelName]; ok {
+			// If disk is already a detach goroutine and in the detachedDisk list, do not cancel
+			// the goroutine.
+			logger.V(hotplugDetachmentVerbosity).Infof("Hotplug detach stil requested, continue grace period = [%+v]", cancelDiskDetachChannelName)
 		} else {
-			// If disk is no longer in detachedDisk list, it no longer needs to be detached.  Signal
-			// detach cancellation and remove from detachedDisks list.
-			logger.V(hotplugDetachmentVerbosity).Infof("Hotplug detach not longer needed, cancel it [%+v]", attachDiskChannelName)
+			// If disk is already a detach goroutine and is no longer in detachedDisk list, it no
+			// longer needs to be detached.  Signal detach cancellation and remove from detachedDisks
+			// list.
+			logger.V(hotplugDetachmentVerbosity).Infof("Hotplug detach not longer needed, cancel it [%+v]", cancelDiskDetachChannelName)
 			// Signal detach goutine to cancel
-			attachDiskChannel <- struct{}{}
+			cancelDiskDetachChannel <- struct{}{}
 			// Remove from detachedDisks list so detach goutine is not recreated
-			delete(detachedDisks, attachDiskChannelName)
+			delete(detachedDisks, cancelDiskDetachChannelName)
 		}
 	}
 	// Look up all the disks to detach
@@ -962,17 +969,17 @@ func (l *LibvirtDomainManager) SyncVMI(vmi *v1.VirtualMachineInstance, allowEmul
 
 			// If channel has already been created, a goroutine is already waiting for the disk to be detached.  Exit
 			// so there aren't multiple goroutines waiting to detach the same disk.
-			if _, ok := l.attachDiskChannels[namespacedDiskName]; ok {
+			if _, ok := l.cancelDiskDetachChannels[namespacedDiskName]; ok {
 				logger.V(hotplugDetachmentVerbosity).Infof("Potential hotplug disk detaching already handled: %s", namespacedDiskName)
 				return
 			}
 			// There are no other goroutines waiting to detach this disk, create a channel enable subsequent calls to
 			// SyncVMI to cancel this detach (if attach is requested within the grace period: 5 seconds)
-			l.attachDiskChannels[namespacedDiskName] = make(chan struct{})
+			l.cancelDiskDetachChannels[namespacedDiskName] = make(chan struct{})
 			// Wait for either the grace period to expire (in which case: proceed to detach) or for the attach channel
 			// to be triggered (in which case: cancel the detach)
 			select {
-			case <-l.attachDiskChannels[namespacedDiskName]:
+			case <-l.cancelDiskDetachChannels[namespacedDiskName]:
 				// Disk attach has been requested within the grace period, cancel the detach
 				logger.V(hotplugDetachmentVerbosity).Infof("Potential hotplug disk detaching was cancelled: %s", namespacedDiskName)
 			case <-time.After(5 * time.Second):
@@ -990,7 +997,7 @@ func (l *LibvirtDomainManager) SyncVMI(vmi *v1.VirtualMachineInstance, allowEmul
 				}
 			}
 			// Detach request has been handled, remove channel from map
-			delete(l.attachDiskChannels, namespacedDiskName)
+			delete(l.cancelDiskDetachChannels, namespacedDiskName)
 		}()
 	}
 	// Look up all the disks to attach
@@ -1004,10 +1011,10 @@ func (l *LibvirtDomainManager) SyncVMI(vmi *v1.VirtualMachineInstance, allowEmul
 		}
 		attachDiskName := attachDisk.Alias.GetName()
 		namespacedDiskName := fmt.Sprintf("%s_%s_%s", vmi.Namespace, vmi.Name, attachDiskName)
-		if _, ok := l.attachDiskChannels[namespacedDiskName]; ok {
+		if _, ok := l.cancelDiskDetachChannels[namespacedDiskName]; ok {
 			logger.V(hotplugDetachmentVerbosity).Infof("Hotplug attach during detach grace period, signal detach goroutine: %s", namespacedDiskName)
 			// a goroutine is waiting to detach this disk, signal it to stop
-			l.attachDiskChannels[namespacedDiskName] <- struct{}{}
+			l.cancelDiskDetachChannels[namespacedDiskName] <- struct{}{}
 			// no need to reattach if the disk is already attached
 			logger.V(hotplugDetachmentVerbosity).Infof("Skip hotplug detach/reattach disk: %s", namespacedDiskName)
 			continue
