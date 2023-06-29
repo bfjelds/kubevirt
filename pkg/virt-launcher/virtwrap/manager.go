@@ -100,8 +100,7 @@ const maxConcurrentMemoryDumps = 1
 // TODO: Make this configurable from the VMI object?
 const hotplugDetachmentGracePeriod = 5 * time.Second
 
-// TODO: Either delete logging statements that use this or increase the value to 5
-const hotplugDetachmentVerbosity = 1
+const hotplugDetachmentVerbosity = 4
 
 type contextStore struct {
 	ctx    context.Context
@@ -982,7 +981,7 @@ func (l *LibvirtDomainManager) SyncVMI(vmi *v1.VirtualMachineInstance, allowEmul
 			case <-l.cancelDiskDetachChannels[namespacedDiskName]:
 				// Disk attach has been requested within the grace period, cancel the detach
 				logger.V(hotplugDetachmentVerbosity).Infof("Potential hotplug disk detaching was cancelled: %s", namespacedDiskName)
-			case <-time.After(5 * time.Second):
+			case <-time.After(hotplugDetachmentGracePeriod):
 				// Grace period has expired without an attache request, proceed to detach
 				logger.V(1).Infof("Detaching disk %s, target %s", detachDiskName, detachDiskTargetDevice)
 				dom, err := l.virConn.LookupDomainByName(domainName)
@@ -995,6 +994,8 @@ func (l *LibvirtDomainManager) SyncVMI(vmi *v1.VirtualMachineInstance, allowEmul
 				if err != nil {
 					logger.Reason(err).Error("detaching device")
 				}
+
+				dom.Free()
 			}
 			// Detach request has been handled, remove channel from map
 			delete(l.cancelDiskDetachChannels, namespacedDiskName)
