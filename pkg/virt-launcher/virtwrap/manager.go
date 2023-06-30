@@ -951,10 +951,7 @@ func (l *LibvirtDomainManager) SyncVMI(vmi *v1.VirtualMachineInstance, allowEmul
 		}
 	}
 	// Look up all the disks to detach
-	for namespacedDiskName, detachDisk := range detachedDisks {
-		detachDiskName := detachDisk.Alias.GetName()
-		detachDiskTargetDevice := detachDisk.Target.Device
-		domainName := domain.Spec.Name
+	for detachDiskKey, detachDisk := range detachedDisks {
 
 		detachBytes, err := xml.Marshal(detachDisk)
 		if err != nil {
@@ -963,7 +960,7 @@ func (l *LibvirtDomainManager) SyncVMI(vmi *v1.VirtualMachineInstance, allowEmul
 		}
 
 		// Create goroutine to do detachment so we can wait to see if the disk is reattached.
-		go func() {
+		go func(namespacedDiskName, detachDiskName, detachDiskTargetDevice, domainName string, detachBytes []byte) {
 			logger.V(hotplugDetachmentVerbosity).Infof("Potentially detaching hotplug disk %s", namespacedDiskName)
 
 			// If channel has already been created, a goroutine is already waiting for the disk to be detached.  Exit
@@ -999,7 +996,7 @@ func (l *LibvirtDomainManager) SyncVMI(vmi *v1.VirtualMachineInstance, allowEmul
 			}
 			// Detach request has been handled, remove channel from map
 			delete(l.cancelDiskDetachChannels, namespacedDiskName)
-		}()
+		}(detachDiskKey, detachDisk.Alias.GetName(), detachDisk.Target.Device, domain.Spec.Name, detachBytes)
 	}
 	// Look up all the disks to attach
 	for _, attachDisk := range getAttachedDisks(oldSpec.Devices.Disks, domain.Spec.Devices.Disks) {
