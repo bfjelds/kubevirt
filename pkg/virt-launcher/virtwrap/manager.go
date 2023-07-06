@@ -1010,11 +1010,11 @@ func (l *LibvirtDomainManager) SyncVMI(vmi *v1.VirtualMachineInstance, allowEmul
 					logger.Reason(err).Error("getting domain for device detach")
 					return
 				}
-				defer dom.Free()
 				err = dom.DetachDeviceFlags(strings.ToLower(string(detachBytes)), affectLiveAndConfigLibvirtFlags)
 				if err != nil {
 					logger.Reason(err).Error("detaching device")
 				}
+				dom.Free()
 			}
 		}(detachDiskKey, detachDisk.Alias.GetName(), detachDisk.Target.Device, domain.Spec.Name, detachBytes)
 	}

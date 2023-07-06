@@ -1,5 +1,5 @@
 diff --git a/pkg/virt-launcher/virtwrap/manager.go b/pkg/virt-launcher/virtwrap/manager.go
-index 63d8d43d2..21e7eab4d 100644
+index 63d8d43d2..d2d0a2e07 100644
 --- a/pkg/virt-launcher/virtwrap/manager.go
 +++ b/pkg/virt-launcher/virtwrap/manager.go
 @@ -97,6 +97,11 @@ const (
@@ -135,11 +135,11 @@ index 63d8d43d2..21e7eab4d 100644
 +					logger.Reason(err).Error("getting domain for device detach")
 +					return
 +				}
-+				defer dom.Free()
 +				err = dom.DetachDeviceFlags(strings.ToLower(string(detachBytes)), affectLiveAndConfigLibvirtFlags)
 +				if err != nil {
 +					logger.Reason(err).Error("detaching device")
 +				}
++				dom.Free()
 +			}
 +		}(detachDiskKey, detachDisk.Alias.GetName(), detachDisk.Target.Device, domain.Spec.Name, detachBytes)
  	}
@@ -194,12 +194,12 @@ index 63d8d43d2..21e7eab4d 100644
  	return res
 diff --git a/prototype.patch b/prototype.patch
 new file mode 100644
-index 000000000..8fd4235fe
+index 000000000..319365038
 --- /dev/null
 +++ b/prototype.patch
 @@ -0,0 +1,168 @@
 +diff --git a/pkg/virt-launcher/virtwrap/manager.go b/pkg/virt-launcher/virtwrap/manager.go
-+index 63d8d43d2..21e7eab4d 100644
++index 63d8d43d2..d2d0a2e07 100644
 +--- a/pkg/virt-launcher/virtwrap/manager.go
 ++++ b/pkg/virt-launcher/virtwrap/manager.go
 +@@ -97,6 +97,11 @@ const (
@@ -335,11 +335,11 @@ index 000000000..8fd4235fe
 ++					logger.Reason(err).Error("getting domain for device detach")
 ++					return
 ++				}
-++				defer dom.Free()
 ++				err = dom.DetachDeviceFlags(strings.ToLower(string(detachBytes)), affectLiveAndConfigLibvirtFlags)
 ++				if err != nil {
 ++					logger.Reason(err).Error("detaching device")
 ++				}
+++				dom.Free()
 ++			}
 ++		}(detachDiskKey, detachDisk.Alias.GetName(), detachDisk.Target.Device, domain.Spec.Name, detachBytes)
 + 	}
@@ -365,5 +365,5 @@ index 000000000..8fd4235fe
 + 		// set drivers cache mode
 + 		err = converter.SetDriverCacheMode(&attachDisk, l.directIOChecker)
 + 		if err != nil {
-+@@ -1032,7 +1125,7 @@ func isHotplugDisk(disk api.Di
++@@ -1032,7 +1125,7 @@ func isHotplugDisk(disk api.Disk) bo
 \ No newline at end of file
