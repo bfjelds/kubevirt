@@ -1,5 +1,5 @@
 diff --git a/pkg/virt-launcher/virtwrap/manager.go b/pkg/virt-launcher/virtwrap/manager.go
-index 63d8d43d2..d2d0a2e07 100644
+index 63d8d43d2..0e608c4bb 100644
 --- a/pkg/virt-launcher/virtwrap/manager.go
 +++ b/pkg/virt-launcher/virtwrap/manager.go
 @@ -97,6 +97,11 @@ const (
@@ -9,7 +9,7 @@ index 63d8d43d2..d2d0a2e07 100644
 +// TODO: Make this configurable from the VMI object?
 +const hotplugDetachmentGracePeriod = 5 * time.Second
 +
-+const hotplugDetachmentVerbosity = 1
++const hotplugDetachmentVerbosity = 4
 +
  type contextStore struct {
  	ctx    context.Context
@@ -194,12 +194,12 @@ index 63d8d43d2..d2d0a2e07 100644
  	return res
 diff --git a/prototype.patch b/prototype.patch
 new file mode 100644
-index 000000000..319365038
+index 000000000..61d8fb8ec
 --- /dev/null
 +++ b/prototype.patch
 @@ -0,0 +1,168 @@
 +diff --git a/pkg/virt-launcher/virtwrap/manager.go b/pkg/virt-launcher/virtwrap/manager.go
-+index 63d8d43d2..d2d0a2e07 100644
++index 63d8d43d2..0e608c4bb 100644
 +--- a/pkg/virt-launcher/virtwrap/manager.go
 ++++ b/pkg/virt-launcher/virtwrap/manager.go
 +@@ -97,6 +97,11 @@ const (
@@ -209,7 +209,7 @@ index 000000000..319365038
 ++// TODO: Make this configurable from the VMI object?
 ++const hotplugDetachmentGracePeriod = 5 * time.Second
 ++
-++const hotplugDetachmentVerbosity = 1
+++const hotplugDetachmentVerbosity = 4
 ++
 + type contextStore struct {
 + 	ctx    context.Context

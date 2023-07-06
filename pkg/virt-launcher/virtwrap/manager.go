@@ -100,7 +100,7 @@ const maxConcurrentMemoryDumps = 1
 // TODO: Make this configurable from the VMI object?
 const hotplugDetachmentGracePeriod = 5 * time.Second
 
-const hotplugDetachmentVerbosity = 1
+const hotplugDetachmentVerbosity = 4
 
 type contextStore struct {
 	ctx    context.Context
