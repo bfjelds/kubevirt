@@ -1,20 +1,29 @@
 diff --git a/pkg/virt-launcher/virtwrap/manager.go b/pkg/virt-launcher/virtwrap/manager.go
-index 63d8d43d2..a39a27cc9 100644
+index 63d8d43d2..309a8449b 100644
 --- a/pkg/virt-launcher/virtwrap/manager.go
 +++ b/pkg/virt-launcher/virtwrap/manager.go
-@@ -97,6 +97,11 @@ const (
+@@ -39,6 +39,8 @@ import (
+ 	"sync"
+ 	"time"
+ 
++	"math/rand"
++
+ 	"k8s.io/utils/pointer"
+ 
+ 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/device/hostdevice/generic"
+@@ -97,6 +99,11 @@ const (
  const maxConcurrentHotplugHostDevices = 1
  const maxConcurrentMemoryDumps = 1
  
 +// TODO: Make this configurable from the VMI object?
 +const hotplugDetachmentGracePeriod = 5 * time.Second
 +
-+const hotplugDetachmentVerbosity = 4
++const hotplugDetachmentVerbosity = 1
 +
  type contextStore struct {
  	ctx    context.Context
  	cancel context.CancelFunc
-@@ -142,6 +147,7 @@ type LibvirtDomainManager struct {
+@@ -142,6 +149,7 @@ type LibvirtDomainManager struct {
  
  	hotplugHostDevicesInProgress chan struct{}
  	memoryDumpInProgress         chan struct{}
@@ -22,7 +31,7 @@ index 63d8d43d2..a39a27cc9 100644
  
  	virtShareDir             string
  	ephemeralDiskDir         string
-@@ -204,6 +210,7 @@ func newLibvirtDomainManager(connection cli.Connection, virtShareDir, ephemeralD
+@@ -204,6 +212,7 @@ func newLibvirtDomainManager(connection cli.Connection, virtShareDir, ephemeralD
  		cancelSafetyUnfreezeChan: make(chan struct{}),
  		migrateInfoStats:         &stats.DomainJobInfo{},
  		metadataCache:            metadataCache,
@@ -30,12 +39,31 @@ index 63d8d43d2..a39a27cc9 100644
  	}
  
  	manager.hotplugHostDevicesInProgress = make(chan struct{}, maxConcurrentHotplugHostDevices)
-@@ -922,19 +929,74 @@ func (l *LibvirtDomainManager) SyncVMI(vmi *v1.VirtualMachineInstance, allowEmul
+@@ -828,10 +837,16 @@ func (l *LibvirtDomainManager) generateConverterContext(vmi *v1.VirtualMachineIn
+ }
+ 
+ func (l *LibvirtDomainManager) SyncVMI(vmi *v1.VirtualMachineInstance, allowEmulation bool, options *cmdv1.VirtualMachineOptions) (*api.DomainSpec, error) {
++
++	logger := log.Log.Object(vmi)
++
++	id := rand.Int()
++	logger.V(hotplugDetachmentVerbosity).Infof("SyncVMI called (pre mutex %+v)", id)
++
+ 	l.domainModifyLock.Lock()
+ 	defer l.domainModifyLock.Unlock()
+ 
+-	logger := log.Log.Object(vmi)
++	logger.V(hotplugDetachmentVerbosity).Infof("SyncVMI called (post mutex %+v)", id)
+ 
+ 	domain := &api.Domain{}
+ 
+@@ -922,19 +937,92 @@ func (l *LibvirtDomainManager) SyncVMI(vmi *v1.VirtualMachineInstance, allowEmul
  		return nil, err
  	}
  
 +	// Get list of disks that should be detached
 +	detachedDisks := getDetachedDisks(vmi.Name, vmi.Namespace, oldSpec.Devices.Disks, domain.Spec.Devices.Disks)
++	logger.V(hotplugDetachmentVerbosity).Infof("Hotplug detached disks: %+v", len(detachedDisks))
 +
 +	// Check list of detached disks against the list of detachment goroutines.  Cancel the goroutines
 +	// that are no longer needed.
@@ -75,44 +103,61 @@ index 63d8d43d2..a39a27cc9 100644
 +		go func(namespacedDiskName, detachDiskName, detachDiskTargetDevice, domainName string, detachBytes []byte) {
 +			logger.V(hotplugDetachmentVerbosity).Infof("Potentially detaching hotplug disk %s", namespacedDiskName)
 +
++			logger.V(hotplugDetachmentVerbosity).Infof("Potential hotplug disk detach 1 claiming mutex: %s (correlation: %+v)", namespacedDiskName, id)
++			l.domainModifyLock.Lock()
++			logger.V(hotplugDetachmentVerbosity).Infof("Potential hotplug disk detach 1 claimed mutex: %s (correlation: %+v)", namespacedDiskName, id)
++
 +			// If channel has already been created, a goroutine is already waiting for the disk to be detached.  Exit
 +			// so there aren't multiple goroutines waiting to detach the same disk.
 +			if _, ok := l.cancelDiskDetachChannels[namespacedDiskName]; ok {
 +				logger.V(hotplugDetachmentVerbosity).Infof("Potential hotplug disk detaching already handled: %s", namespacedDiskName)
++				l.domainModifyLock.Unlock()
 +				return
 +			}
 +			// There are no other goroutines waiting to detach this disk, create a channel enable subsequent calls to
 +			// SyncVMI to cancel this detach (if attach is requested within the grace period: 5 seconds)
-+			l.cancelDiskDetachChannels[namespacedDiskName] = make(chan struct{})
++			cancelChannel := make(chan struct{})
++			l.cancelDiskDetachChannels[namespacedDiskName] = cancelChannel
++
++			l.domainModifyLock.Unlock()
++
++			doDetach := false
 +			// Wait for either the grace period to expire (in which case: proceed to detach) or for the attach channel
 +			// to be triggered (in which case: cancel the detach)
 +			select {
-+			case <-l.cancelDiskDetachChannels[namespacedDiskName]:
++			case <-cancelChannel:
 +				// Disk attach has been requested within the grace period, cancel the detach
 +				logger.V(hotplugDetachmentVerbosity).Infof("Potential hotplug disk detaching was cancelled: %s", namespacedDiskName)
 +			case <-time.After(hotplugDetachmentGracePeriod):
++				doDetach = true
++			}
++
++			logger.V(hotplugDetachmentVerbosity).Infof("Potential hotplug disk detach 2 claiming mutex: %s (correlation: %+v)", namespacedDiskName, id)
++			l.domainModifyLock.Lock()
++			logger.V(hotplugDetachmentVerbosity).Infof("Potential hotplug disk detach 2 claimed mutex: %s (correlation: %+v)", namespacedDiskName, id)
++
++			if doDetach {
 +				// Grace period has expired without an attache request, proceed to detach
 +				logger.V(1).Infof("Detaching disk %s, target %s", detachDiskName, detachDiskTargetDevice)
 +				dom, err := l.virConn.LookupDomainByName(domainName)
 +				if err != nil {
 +					logger.Reason(err).Error("getting domain for device detach")
-+					break
++				} else {
++					err = dom.DetachDeviceFlags(strings.ToLower(string(detachBytes)), affectLiveAndConfigLibvirtFlags)
++					if err != nil {
++						logger.Reason(err).Error("detaching device")
++					}
++					dom.Free()
 +				}
-+
-+				err = dom.DetachDeviceFlags(strings.ToLower(string(detachBytes)), affectLiveAndConfigLibvirtFlags)
-+				if err != nil {
-+					logger.Reason(err).Error("detaching device")
-+				}
-+
-+				dom.Free()
 +			}
 +			// Detach request has been handled, remove channel from map
 +			delete(l.cancelDiskDetachChannels, namespacedDiskName)
++			l.domainModifyLock.Unlock()
 +		}(detachDiskKey, detachDisk.Alias.GetName(), detachDisk.Target.Device, domain.Spec.Name, detachBytes)
  	}
  	// Look up all the disks to attach
  	for _, attachDisk := range getAttachedDisks(oldSpec.Devices.Disks, domain.Spec.Devices.Disks) {
-@@ -945,7 +1007,18 @@ func (l *LibvirtDomainManager) SyncVMI(vmi *v1.VirtualMachineInstance, allowEmul
+@@ -945,7 +1033,18 @@ func (l *LibvirtDomainManager) SyncVMI(vmi *v1.VirtualMachineInstance, allowEmul
  		if !allowAttach {
  			continue
  		}
@@ -132,7 +177,7 @@ index 63d8d43d2..a39a27cc9 100644
  		// set drivers cache mode
  		err = converter.SetDriverCacheMode(&attachDisk, l.directIOChecker)
  		if err != nil {
-@@ -1032,7 +1105,7 @@ func isHotplugDisk(disk api.Disk) bool {
+@@ -1032,7 +1131,7 @@ func isHotplugDisk(disk api.Disk) bool {
  	return strings.HasPrefix(getSourceFile(disk), v1.HotplugDiskDir)
  }
  
@@ -141,7 +186,7 @@ index 63d8d43d2..a39a27cc9 100644
  	newDiskMap := make(map[string]api.Disk)
  	for _, disk := range newDisks {
  		file := getSourceFile(disk)
-@@ -1040,14 +1113,15 @@ func getDetachedDisks(oldDisks, newDisks []api.Disk) []api.Disk {
+@@ -1040,14 +1139,15 @@ func getDetachedDisks(oldDisks, newDisks []api.Disk) []api.Disk {
  			newDiskMap[file] = disk
  		}
  	}
@@ -161,27 +206,36 @@ index 63d8d43d2..a39a27cc9 100644
  	return res
 diff --git a/prototype.patch b/prototype.patch
 new file mode 100644
-index 000000000..14ed2d9b3
+index 000000000..72a42bfb9
 --- /dev/null
 +++ b/prototype.patch
-@@ -0,0 +1,85 @@
+@@ -0,0 +1,172 @@
 +diff --git a/pkg/virt-launcher/virtwrap/manager.go b/pkg/virt-launcher/virtwrap/manager.go
-+index 63d8d43d2..a39a27cc9 100644
++index 63d8d43d2..309a8449b 100644
 +--- a/pkg/virt-launcher/virtwrap/manager.go
 ++++ b/pkg/virt-launcher/virtwrap/manager.go
-+@@ -97,6 +97,11 @@ const (
++@@ -39,6 +39,8 @@ import (
++ 	"sync"
++ 	"time"
++ 
+++	"math/rand"
+++
++ 	"k8s.io/utils/pointer"
++ 
++ 	"kubevirt.io/kubevirt/pkg/virt-launcher/virtwrap/device/hostdevice/generic"
++@@ -97,6 +99,11 @@ const (
 + const maxConcurrentHotplugHostDevices = 1
 + const maxConcurrentMemoryDumps = 1
 + 
 ++// TODO: Make this configurable from the VMI object?
 ++const hotplugDetachmentGracePeriod = 5 * time.Second
 ++
-++const hotplugDetachmentVerbosity = 4
+++const hotplugDetachmentVerbosity = 1
 ++
 + type contextStore struct {
 + 	ctx    context.Context
 + 	cancel context.CancelFunc
-+@@ -142,6 +147,7 @@ type LibvirtDomainManager struct {
++@@ -142,6 +149,7 @@ type LibvirtDomainManager struct {
 + 
 + 	hotplugHostDevicesInProgress chan struct{}
 + 	memoryDumpInProgress         chan struct{}
@@ -189,7 +243,7 @@ index 000000000..14ed2d9b3
 + 
 + 	virtShareDir             string
 + 	ephemeralDiskDir         string
-+@@ -204,6 +210,7 @@ func newLibvirtDomainManager(connection cli.Connection, virtShareDir, ephemeralD
++@@ -204,6 +212,7 @@ func newLibvirtDomainManager(connection cli.Connection, virtShareDir, ephemeralD
 + 		cancelSafetyUnfreezeChan: make(chan struct{}),
 + 		migrateInfoStats:         &stats.DomainJobInfo{},
 + 		metadataCache:            metadataCache,
@@ -197,12 +251,31 @@ index 000000000..14ed2d9b3
 + 	}
 + 
 + 	manager.hotplugHostDevicesInProgress = make(chan struct{}, maxConcurrentHotplugHostDevices)
-+@@ -922,19 +929,74 @@ func (l *LibvirtDomainManager) SyncVMI(vmi *v1.VirtualMachineInstance, allowEmul
++@@ -828,10 +837,16 @@ func (l *LibvirtDomainManager) generateConverterContext(vmi *v1.VirtualMachineIn
++ }
++ 
++ func (l *LibvirtDomainManager) SyncVMI(vmi *v1.VirtualMachineInstance, allowEmulation bool, options *cmdv1.VirtualMachineOptions) (*api.DomainSpec, error) {
+++
+++	logger := log.Log.Object(vmi)
+++
+++	id := rand.Int()
+++	logger.V(hotplugDetachmentVerbosity).Infof("SyncVMI called (pre mutex %+v)", id)
+++
++ 	l.domainModifyLock.Lock()
++ 	defer l.domainModifyLock.Unlock()
++ 
++-	logger := log.Log.Object(vmi)
+++	logger.V(hotplugDetachmentVerbosity).Infof("SyncVMI called (post mutex %+v)", id)
++ 
++ 	domain := &api.Domain{}
++ 
++@@ -922,19 +937,92 @@ func (l *LibvirtDomainManager) SyncVMI(vmi *v1.VirtualMachineInstance, allowEmul
 + 		return nil, err
 + 	}
 + 
 ++	// Get list of disks that should be detached
 ++	detachedDisks := getDetachedDisks(vmi.Name, vmi.Namespace, oldSpec.Devices.Disks, domain.Spec.Devices.Disks)
+++	logger.V(hotplugDetachmentVerbosity).Infof("Hotplug detached disks: %+v", len(detachedDisks))
 ++
 ++	// Check list of detached disks against the list of detachment goroutines.  Cancel the goroutines
 ++	// that are no longer needed.
@@ -242,12 +315,71 @@ index 000000000..14ed2d9b3
 ++		go func(namespacedDiskName, detachDiskName, detachDiskTargetDevice, domainName string, detachBytes []byte) {
 ++			logger.V(hotplugDetachmentVerbosity).Infof("Potentially detaching hotplug disk %s", namespacedDiskName)
 ++
+++			logger.V(hotplugDetachmentVerbosity).Infof("Potential hotplug disk detach 1 claiming mutex: %s (correlation: %+v)", namespacedDiskName, id)
+++			l.domainModifyLock.Lock()
+++			logger.V(hotplugDetachmentVerbosity).Infof("Potential hotplug disk detach 1 claimed mutex: %s (correlation: %+v)", namespacedDiskName, id)
+++
 ++			// If channel has already been created, a goroutine is already waiting for the disk to be detached.  Exit
 ++			// so there aren't multiple goroutines waiting to detach the same disk.
 ++			if _, ok := l.cancelDiskDetachChannels[namespacedDiskName]; ok {
 ++				logger.V(hotplugDetachmentVerbosity).Infof("Potential hotplug disk detaching already handled: %s", namespacedDiskName)
+++				l.domainModifyLock.Unlock()
 ++				return
 ++			}
 ++			// There are no other goroutines waiting to detach this disk, create a channel enable subsequent calls to
-++	
+++			// SyncVMI to cancel this detach (if attach is requested within the grace period: 5 seconds)
+++			cancelChannel := make(chan struct{})
+++			l.cancelDiskDetachChannels[namespacedDiskName] = cancelChannel
+++
+++			l.domainModifyLock.Unlock()
+++
+++			doDetach := false
+++			// Wait for either the grace period to expire (in which case: proceed to detach) or for the attach channel
+++			// to be triggered (in which case: cancel the detach)
+++			select {
+++			case <-cancelChannel:
+++				// Disk attach has been requested within the grace period, cancel the detach
+++				logger.V(hotplugDetachmentVerbosity).Infof("Potential hotplug disk detaching was cancelled: %s", namespacedDiskName)
+++			case <-time.After(hotplugDetachmentGracePeriod):
+++				doDetach = true
+++			}
+++
+++			logger.V(hotplugDetachmentVerbosity).Infof("Potential hotplug disk detach 2 claiming mutex: %s (correlation: %+v)", namespacedDiskName, id)
+++			l.domainModifyLock.Lock()
+++			logger.V(hotplugDetachmentVerbosity).Infof("Potential hotplug disk detach 2 claimed mutex: %s (correlation: %+v)", namespacedDiskName, id)
+++
+++			if doDetach {
+++				// Grace period has expired without an attache request, proceed to detach
+++				logger.V(1).Infof("Detaching disk %s, target %s", detachDiskName, detachDiskTargetDevice)
+++				dom, err := l.virConn.LookupDomainByName(domainName)
+++				if err != nil {
+++					logger.Reason(err).Error("getting domain for device detach")
+++				} else {
+++					err = dom.DetachDeviceFlags(strings.ToLower(string(detachBytes)), affectLiveAndConfigLibvirtFlags)
+++					if err != nil {
+++						logger.Reason(err).Error("detaching device")
+++					}
+++					dom.Free()
+++				}
+++			}
+++			// Detach request has been handled, remove channel from map
+++			delete(l.cancelDiskDetachChannels, namespacedDiskName)
+++			l.domainModifyLock.Unlock()
+++		}(detachDiskKey, detachDisk.Alias.GetName(), detachDisk.Target.Device, domain.Spec.Name, detachBytes)
++ 	}
++ 	// Look up all the disks to attach
++ 	for _, attachDisk := range getAttachedDisks(oldSpec.Devices.Disks, domain.Spec.Devices.Disks) {
++@@ -945,7 +1033,18 @@ func (l *LibvirtDomainManager) SyncVMI(vmi *v1.VirtualMachineInstance, allowEmul
++ 		if !allowAttach {
++ 			continue
++ 		}
++-		logger.V(1).Infof("Attaching disk %s, target %s", attachDisk.Alias.GetName(), attachDisk.Target.Device)
+++		attachDiskName := attachDisk.Alias.GetName()
+++		namespacedDiskName := fmt.Sprintf("%s_%s_%s", vmi.Namespace, vmi.Name, attachDiskName)
+++		if _, ok := l.cancelDiskDetachChannels[namespacedDiskName]; ok {
+++			logger.V(hotplugDetachmentVerbosity).Infof("Hotplug attach during detach grace period, signal detach goroutine: %s", namespacedDiskName)
+++			// a goroutine is waiting to detach this disk, signal it to stop
+++			l.cancelDiskDetachChannels[namespacedDiskName] <- struct{}{}
+++			// no need to reattach if the disk is already attached
+++			logger.V(hotplugDetachmentV
 \ No newline at end of file
