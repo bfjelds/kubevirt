@@ -105,6 +105,8 @@ type contextStore struct {
 type DomainManager interface {
 	SyncVMI(*v1.VirtualMachineInstance, bool, *cmdv1.VirtualMachineOptions) (*api.DomainSpec, error)
 	PauseVMI(*v1.VirtualMachineInstance) error
+	SaveVMI(*v1.VirtualMachineInstance, string) error
+	RestoreVMI(*v1.VirtualMachineInstance, string) error
 	UnpauseVMI(*v1.VirtualMachineInstance) error
 	FreezeVMI(*v1.VirtualMachineInstance, int32) error
 	UnfreezeVMI(*v1.VirtualMachineInstance) error
@@ -883,20 +885,34 @@ func (l *LibvirtDomainManager) SyncVMI(vmi *v1.VirtualMachineInstance, allowEmul
 	// TODO for migration and error detection we also need the state change reason
 	// TODO blocked state
 	if cli.IsDown(domState) && !vmi.IsRunning() && !vmi.IsFinal() {
-		err = l.generateCloudInitISO(vmi, &dom)
-		if err != nil {
-			return nil, err
-		}
-		createFlags := getDomainCreateFlags(vmi)
-		err = dom.CreateWithFlags(createFlags)
-		if err != nil {
-			logger.Reason(err).
-				Errorf("Failed to start VirtualMachineInstance with flags %v.", createFlags)
-			return nil, err
-		}
-		logger.Info("Domain started.")
-		if vmi.ShouldStartPaused() {
-			l.paused.add(vmi.UID)
+
+		srcFile := getSnapshotPath(vmi)
+		if _, err := os.Stat(srcFile); err == nil {
+			// If there is a snapshot and restore is configured, do restore
+			err = l.virConn.DomainRestore(srcFile)
+			if err != nil {
+				logger.Reason(err).
+					Errorf("Failed to restpre VirtualMachineInstance from %v.", srcFile)
+				return nil, err
+			}
+
+		} else {
+			// Otherwise, create a new domain
+			err = l.generateCloudInitISO(vmi, &dom)
+			if err != nil {
+				return nil, err
+			}
+			createFlags := getDomainCreateFlags(vmi)
+			err = dom.CreateWithFlags(createFlags)
+			if err != nil {
+				logger.Reason(err).
+					Errorf("Failed to start VirtualMachineInstance with flags %v.", createFlags)
+				return nil, err
+			}
+			logger.Info("Domain started.")
+			if vmi.ShouldStartPaused() {
+				l.paused.add(vmi.UID)
+			}
 		}
 	} else if cli.IsPaused(domState) && !l.paused.contains(vmi.UID) {
 		// TODO: if state change reason indicates a system error, we could try something smarter
@@ -1288,6 +1304,84 @@ func (l *LibvirtDomainManager) PauseVMI(vmi *v1.VirtualMachineInstance) error {
 		l.paused.add(vmi.UID)
 	} else {
 		logger.Infof("Domain is not running for %s", vmi.GetObjectMeta().GetName())
+	}
+
+	return nil
+}
+
+func (l *LibvirtDomainManager) SaveVMI(vmi *v1.VirtualMachineInstance, destFile string) error {
+	l.domainModifyLock.Lock()
+	defer l.domainModifyLock.Unlock()
+
+	logger := log.Log.Object(vmi)
+
+	domName := util.VMINamespaceKeyFunc(vmi)
+	dom, err := l.virConn.LookupDomainByName(domName)
+	if err != nil {
+		// If the VirtualMachineInstance does not exist, we are done
+		if domainerrors.IsNotFound(err) {
+			return fmt.Errorf("Domain not found.")
+		} else {
+			logger.Reason(err).Error("Getting the domain failed during pause.")
+			return err
+		}
+	}
+	defer dom.Free()
+
+	domState, _, err := dom.GetState()
+	if err != nil {
+		logger.Reason(err).Error(failedGetDomainState)
+		return err
+	}
+
+	if domState == libvirt.DOMAIN_PAUSED {
+		err = dom.Save(destFile)
+		if err != nil {
+			logger.Reason(err).Error("Signalling save failed.")
+			return err
+		}
+		logger.Infof("Signaled save for %s", vmi.GetObjectMeta().GetName())
+	} else {
+		logger.Infof("Domain is not paused for %s", vmi.GetObjectMeta().GetName())
+	}
+
+	return nil
+}
+
+func (l *LibvirtDomainManager) RestoreVMI(vmi *v1.VirtualMachineInstance, srcFile string) error {
+	l.domainModifyLock.Lock()
+	defer l.domainModifyLock.Unlock()
+
+	logger := log.Log.Object(vmi)
+
+	domName := util.VMINamespaceKeyFunc(vmi)
+	dom, err := l.virConn.LookupDomainByName(domName)
+	if err != nil {
+		// If the VirtualMachineInstance does not exist, we are done
+		if domainerrors.IsNotFound(err) {
+			return fmt.Errorf("Domain not found.")
+		} else {
+			logger.Reason(err).Error("Getting the domain failed during pause.")
+			return err
+		}
+	}
+	defer dom.Free()
+
+	domState, _, err := dom.GetState()
+	if err != nil {
+		logger.Reason(err).Error(failedGetDomainState)
+		return err
+	}
+
+	if domState == libvirt.DOMAIN_PAUSED {
+		err = l.virConn.DomainRestore(srcFile)
+		if err != nil {
+			logger.Reason(err).Error("Signalling restore failed.")
+			return err
+		}
+		logger.Infof("Signaled restore for %s", vmi.GetObjectMeta().GetName())
+	} else {
+		logger.Infof("Domain is not paused for %s", vmi.GetObjectMeta().GetName())
 	}
 
 	return nil
@@ -1880,4 +1974,12 @@ func getDomainCreateFlags(vmi *v1.VirtualMachineInstance) libvirt.DomainCreateFl
 		flags |= libvirt.DOMAIN_START_PAUSED
 	}
 	return flags
+}
+
+func getSnapshotPath(vmi *v1.VirtualMachineInstance) string {
+	if false {
+		// TODO: get snapshot path from somewhere ... currently configured
+		return filepath.Join("vmi.Status.SnapshotDir", vmi.Name)
+	}
+	return ""
 }

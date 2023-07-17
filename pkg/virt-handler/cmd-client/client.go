@@ -80,6 +80,8 @@ type MigrationOptions struct {
 type LauncherClient interface {
 	SyncVirtualMachine(vmi *v1.VirtualMachineInstance, options *cmdv1.VirtualMachineOptions) error
 	PauseVirtualMachine(vmi *v1.VirtualMachineInstance) error
+	SaveVirtualMachine(vmi *v1.VirtualMachineInstance, snapshotPath string) error
+	RestoreVirtualMachine(vmi *v1.VirtualMachineInstance, snapshotPath string) error
 	UnpauseVirtualMachine(vmi *v1.VirtualMachineInstance) error
 	FreezeVirtualMachine(vmi *v1.VirtualMachineInstance, unfreezeTimeoutSeconds int32) error
 	UnfreezeVirtualMachine(vmi *v1.VirtualMachineInstance) error
@@ -416,6 +418,48 @@ func (c *VirtLauncherClient) SyncVirtualMachine(vmi *v1.VirtualMachineInstance, 
 
 func (c *VirtLauncherClient) PauseVirtualMachine(vmi *v1.VirtualMachineInstance) error {
 	return c.genericSendVMICmd("Pause", c.v1client.PauseVirtualMachine, vmi, &cmdv1.VirtualMachineOptions{})
+}
+
+func (c *VirtLauncherClient) SaveVirtualMachine(vmi *v1.VirtualMachineInstance, snapshotPath string) error {
+	vmiJson, err := json.Marshal(vmi)
+	if err != nil {
+		return err
+	}
+
+	request := &cmdv1.PersistRequest{
+		Vmi: &cmdv1.VMI{
+			VmiJson: vmiJson,
+		},
+		PersistPath: snapshotPath,
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), longTimeout)
+	defer cancel()
+	response, err := c.v1client.SaveVirtualMachine(ctx, request)
+
+	err = handleError(err, "Save", response)
+	return err
+}
+
+func (c *VirtLauncherClient) RestoreVirtualMachine(vmi *v1.VirtualMachineInstance, snapshotPath string) error {
+	vmiJson, err := json.Marshal(vmi)
+	if err != nil {
+		return err
+	}
+
+	request := &cmdv1.PersistRequest{
+		Vmi: &cmdv1.VMI{
+			VmiJson: vmiJson,
+		},
+		PersistPath: snapshotPath,
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), longTimeout)
+	defer cancel()
+	response, err := c.v1client.RestoreVirtualMachine(ctx, request)
+
+	err = handleError(err, "Restore", response)
+	return err
 }
 
 func (c *VirtLauncherClient) UnpauseVirtualMachine(vmi *v1.VirtualMachineInstance) error {

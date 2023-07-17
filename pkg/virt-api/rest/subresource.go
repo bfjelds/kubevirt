@@ -1330,6 +1330,29 @@ func (app *SubresourceAPIApp) vmVolumePatchStatus(name, namespace string, volume
 	return nil
 }
 
+func (app *SubresourceAPIApp) saveRequestHandler(request *restful.Request, response *restful.Response, ephemeral bool) {
+	// name := request.PathParameter("name")
+	// namespace := request.PathParameter("namespace")
+
+	opts := &v1.SaveOptions{}
+	if request.Request.Body != nil {
+		defer request.Request.Body.Close()
+		err := yaml.NewYAMLOrJSONDecoder(request.Request.Body, 1024).Decode(opts)
+		switch err {
+		case io.EOF, nil:
+			break
+		default:
+			writeError(errors.NewBadRequest(fmt.Sprintf(unmarshalRequestErrFmt, err)), response)
+			return
+		}
+	} else {
+		writeError(errors.NewBadRequest("Request with no body, a new name is expected as the request body"), response)
+		return
+	}
+
+	response.WriteHeader(http.StatusAccepted)
+}
+
 func (app *SubresourceAPIApp) getDryRunOption(volumeRequest *v1.VirtualMachineVolumeRequest) []string {
 	var dryRunOption []string
 	if options := volumeRequest.AddVolumeOptions; options != nil && options.DryRun != nil && options.DryRun[0] == k8smetav1.DryRunAll {
@@ -1353,6 +1376,16 @@ func (app *SubresourceAPIApp) VMRemoveVolumeRequestHandler(request *restful.Requ
 // VMIAddVolumeRequestHandler handles the subresource for hot plugging a volume and disk.
 func (app *SubresourceAPIApp) VMIAddVolumeRequestHandler(request *restful.Request, response *restful.Response) {
 	app.addVolumeRequestHandler(request, response, true)
+}
+
+// VMSaveRequestHandler handles the subresource for preserving VM.
+func (app *SubresourceAPIApp) VMSaveRequestHandler(request *restful.Request, response *restful.Response) {
+	app.saveRequestHandler(request, response, false)
+}
+
+// VMISaveRequestHandler handles the subresource for preserving VMI.
+func (app *SubresourceAPIApp) VMISaveRequestHandler(request *restful.Request, response *restful.Response) {
+	app.saveRequestHandler(request, response, true)
 }
 
 // VMIRemoveVolumeRequestHandler handles the subresource for hot plugging a volume and disk.

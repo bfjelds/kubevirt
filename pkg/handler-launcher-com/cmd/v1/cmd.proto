@@ -6,6 +6,8 @@ option go_package = "v1";
 service Cmd {
   rpc SyncVirtualMachine(VMIRequest) returns (Response) {}
   rpc PauseVirtualMachine(VMIRequest) returns (Response) {}
+  rpc SaveVirtualMachine(PersistRequest) returns (Response) {}
+  rpc RestoreVirtualMachine(PersistRequest) returns (Response) {}
   rpc UnpauseVirtualMachine(VMIRequest) returns (Response) {}
   rpc FreezeVirtualMachine(FreezeRequest) returns (Response) {}
   rpc UnfreezeVirtualMachine(VMIRequest) returns (Response) {}
@@ -158,6 +160,11 @@ message GuestPingResponse {
 message FreezeRequest {
   VMI vmi = 1;
   int32 unfreezeTimeoutSeconds = 2;
+}
+
+message PersistRequest {
+  VMI vmi = 1;
+  string persistPath = 2;
 }
 
 message MemoryDumpRequest {

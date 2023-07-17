@@ -2081,6 +2081,11 @@ type FreezeUnfreezeTimeout struct {
 	UnfreezeTimeout *metav1.Duration `json:"unfreezeTimeout"`
 }
 
+// FreezeUnfreezeTimeout represent the time unfreeze will be triggered if guest was not unfrozen by unfreeze command
+type SaveSnapshotPath struct {
+	SnapeshotPath string `json:"snapshotPath"`
+}
+
 // VirtualMachineMemoryDumpRequest represent the memory dump request phase and info
 type VirtualMachineMemoryDumpRequest struct {
 	// ClaimName is the name of the pvc that will contain the memory dump
@@ -2163,6 +2168,10 @@ type RemoveVolumeOptions struct {
 	// +optional
 	// +listType=atomic
 	DryRun []string `json:"dryRun,omitempty"`
+}
+
+// SaveOptions is provided when preserving a VirtualMachineInstance
+type SaveOptions struct {
 }
 
 type TokenBucketRateLimiter struct {

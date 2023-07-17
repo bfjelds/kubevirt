@@ -46,6 +46,7 @@ const ConnectionInterval = 500 * time.Millisecond
 type Connection interface {
 	LookupDomainByName(name string) (VirDomain, error)
 	DomainDefineXML(xml string) (VirDomain, error)
+	DomainRestore(srcFile string) error
 	Close() (int, error)
 	DomainEventLifecycleRegister(callback libvirt.DomainEventLifecycleCallback) error
 	DomainEventDeviceAddedRegister(callback libvirt.DomainEventDeviceAddedCallback) error
@@ -216,6 +217,16 @@ func (l *LibvirtConnection) DomainDefineXML(xml string) (dom VirDomain, err erro
 	dom, err = l.Connect.DomainDefineXML(xml)
 	l.checkConnectionLost(err)
 	return
+}
+
+func (l *LibvirtConnection) DomainRestore(srcFile string) error {
+	if err := l.reconnectIfNecessary(); err != nil {
+		return err
+	}
+
+	err := l.Connect.DomainRestore(srcFile)
+	l.checkConnectionLost(err)
+	return err
 }
 
 func (l *LibvirtConnection) ListAllDomains(flags libvirt.ConnectListAllDomainsFlags) ([]VirDomain, error) {
@@ -458,6 +469,8 @@ type VirDomain interface {
 	GetState() (libvirt.DomainState, int, error)
 	Create() error
 	CreateWithFlags(flags libvirt.DomainCreateFlags) error
+	Save(destFile string) error
+	// Restore(srcFile string) error
 	Suspend() error
 	Resume() error
 	BlockResize(disk string, size uint64, flags libvirt.DomainBlockResizeFlags) error
