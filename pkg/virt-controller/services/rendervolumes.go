@@ -377,6 +377,15 @@ func withSRIOVPciMapAnnotation() VolumeRendererOption {
 	}
 }
 
+func withPersistenceVolume(volumeName string) VolumeRendererOption {
+	return func(renderer *VolumeRenderer) error {
+		renderer.podVolumeMounts = append(renderer.podVolumeMounts, mountPath(volumeName, "/persisthostupdate"))
+		// renderer.podVolumes doesn't need to be changed because the PersistenceVolume should already
+		// be in the vmi.Volumes list
+		return nil
+	}
+}
+
 func imgPullSecrets(volumes ...v1.Volume) []k8sv1.LocalObjectReference {
 	var imagePullSecrets []k8sv1.LocalObjectReference
 	for _, volume := range volumes {

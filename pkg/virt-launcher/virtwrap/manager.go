@@ -885,17 +885,32 @@ func (l *LibvirtDomainManager) SyncVMI(vmi *v1.VirtualMachineInstance, allowEmul
 	// TODO for migration and error detection we also need the state change reason
 	// TODO blocked state
 	if cli.IsDown(domState) && !vmi.IsRunning() && !vmi.IsFinal() {
-
-		srcFile := getSnapshotPath(vmi)
-		if _, err := os.Stat(srcFile); err == nil {
+		// TODO: During post-update reboot, will we end up in this scope?  If so, this
+		// is the place to fork between create and restore.  If not, where should restore
+		// code exist???
+		availableSnapshotPath := getSnapshotPathIfAvailable(vmi)
+		if availableSnapshotPath != "" {
 			// If there is a snapshot and restore is configured, do restore
-			err = l.virConn.DomainRestore(srcFile)
+			err = l.virConn.DomainRestore(availableSnapshotPath)
 			if err != nil {
 				logger.Reason(err).
-					Errorf("Failed to restpre VirtualMachineInstance from %v.", srcFile)
+					Errorf("Failed to restpre VirtualMachineInstance from %v.", availableSnapshotPath)
 				return nil, err
 			}
-
+			// Remove the snapshot file
+			err = os.Remove(availableSnapshotPath)
+			if err != nil {
+				logger.Reason(err).
+					Errorf("Failed to remove snapshot file %v.", availableSnapshotPath)
+				return nil, err
+			}
+			// Unpause the vitual machine
+			err := dom.Resume()
+			if err != nil {
+				logger.Reason(err).Error("unpausing the VirtualMachineInstance failed.")
+				return nil, err
+			}
+			logger.Info("Domain unpaused.")
 		} else {
 			// Otherwise, create a new domain
 			err = l.generateCloudInitISO(vmi, &dom)
@@ -1976,10 +1991,19 @@ func getDomainCreateFlags(vmi *v1.VirtualMachineInstance) libvirt.DomainCreateFl
 	return flags
 }
 
-func getSnapshotPath(vmi *v1.VirtualMachineInstance) string {
-	if false {
-		// TODO: get snapshot path from somewhere ... currently configured
-		return filepath.Join("vmi.Status.SnapshotDir", vmi.Name)
+func getSnapshotPathIfAvailable(vmi *v1.VirtualMachineInstance) string {
+	if vmi.Spec.PersistenceConfiguration.RestoreStrategy == v1.RestoreStrategySnapshotAvailable &&
+		vmi.Spec.PersistenceConfiguration.PersistenceVolume != "" {
+		for _, volume := range vmi.Spec.Volumes {
+			if volume.Name == vmi.Spec.PersistenceConfiguration.PersistenceVolume {
+				snapshotPath := filepath.Join("/persisthostupdate", vmi.Name)
+				if _, err := os.Stat(snapshotPath); err == nil {
+					return snapshotPath
+				} else {
+					return ""
+				}
+			}
+		}
 	}
 	return ""
 }

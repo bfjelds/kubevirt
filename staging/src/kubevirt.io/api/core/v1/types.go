@@ -122,6 +122,8 @@ type VirtualMachineInstanceSpec struct {
 	TerminationGracePeriodSeconds *int64 `json:"terminationGracePeriodSeconds,omitempty"`
 	// List of volumes that can be mounted by disks belonging to the vmi.
 	Volumes []Volume `json:"volumes,omitempty"`
+	// Persistence configuration for the VirtualMachineInstance.
+	PersistenceConfiguration PersistenceConfiguration `json:"persistenceConfiguration,omitempty"`
 	// Periodic probe of VirtualMachineInstance liveness.
 	// VirtualmachineInstances will be stopped if the probe fails.
 	// Cannot be updated.
@@ -2549,4 +2551,20 @@ type PreferenceMatcher struct {
 	//
 	// +optional
 	InferFromVolume string `json:"inferFromVolume,omitempty"`
+}
+
+type RestoreStrategy string
+
+const (
+	RestoreStrategyNever             RestoreStrategy = ""
+	RestoreStrategySnapshotAvailable RestoreStrategy = "snapshotAvailable"
+)
+
+type PersistenceConfiguration struct {
+
+	// Volume used for persistence
+	PersistenceVolume string `json:"persistenceVolume,omitempty"`
+	// RestoreStrategy can be set to `snapshotAvailable` to enable restore when a snapshot is available
+	// during VM start
+	RestoreStrategy RestoreStrategy `json:"restoreStrategy,omitempty"`
 }
