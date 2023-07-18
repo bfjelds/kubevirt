@@ -2188,10 +2188,6 @@ type RemoveVolumeOptions struct {
 	DryRun []string `json:"dryRun,omitempty"`
 }
 
-// SaveOptions is provided when preserving a VirtualMachineInstance
-type SaveOptions struct {
-}
-
 type TokenBucketRateLimiter struct {
 	// QPS indicates the maximum QPS to the apiserver from this client.
 	// If it's zero, the component default will be used

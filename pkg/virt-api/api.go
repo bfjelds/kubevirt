@@ -509,7 +509,7 @@ func (app *virtAPIApp) composeSubresources() {
 
 		subws.Route(subws.PUT(definitions.NamespacedResourcePath(subresourcesvmiGVR)+definitions.SubResourcePath("save")).
 			To(subresourceApp.VMISaveRequestHandler).
-			Reads(v1.SaveOptions{}).
+			Reads(v1.PersistOptions{}).
 			Param(definitions.NamespaceParam(subws)).Param(definitions.NameParam(subws)).
 			Operation(version.Version+"vmi-save").
 			Doc("Save a running Virtual Machine Instance").
@@ -518,10 +518,28 @@ func (app *virtAPIApp) composeSubresources() {
 
 		subws.Route(subws.PUT(definitions.NamespacedResourcePath(subresourcesvmGVR)+definitions.SubResourcePath("save")).
 			To(subresourceApp.VMSaveRequestHandler).
-			Reads(v1.SaveOptions{}).
+			Reads(v1.PersistOptions{}).
 			Param(definitions.NamespaceParam(subws)).Param(definitions.NameParam(subws)).
 			Operation(version.Version+"vm-save").
 			Doc("Save a running Virtual Machine.").
+			Returns(http.StatusOK, "OK", "").
+			Returns(http.StatusBadRequest, httpStatusBadRequestMessage, ""))
+
+		subws.Route(subws.PUT(definitions.NamespacedResourcePath(subresourcesvmiGVR)+definitions.SubResourcePath("restore")).
+			To(subresourceApp.VMIRestoreRequestHandler).
+			Reads(v1.PersistOptions{}).
+			Param(definitions.NamespaceParam(subws)).Param(definitions.NameParam(subws)).
+			Operation(version.Version+"vmi-restore").
+			Doc("Restore a Virtual Machine Instance").
+			Returns(http.StatusOK, "OK", "").
+			Returns(http.StatusBadRequest, httpStatusBadRequestMessage, ""))
+
+		subws.Route(subws.PUT(definitions.NamespacedResourcePath(subresourcesvmGVR)+definitions.SubResourcePath("restore")).
+			To(subresourceApp.VMRestoreRequestHandler).
+			Reads(v1.PersistOptions{}).
+			Param(definitions.NamespaceParam(subws)).Param(definitions.NameParam(subws)).
+			Operation(version.Version+"vm-restore").
+			Doc("Restore a Virtual Machine.").
 			Returns(http.StatusOK, "OK", "").
 			Returns(http.StatusBadRequest, httpStatusBadRequestMessage, ""))
 
