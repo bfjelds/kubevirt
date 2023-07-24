@@ -56,36 +56,15 @@ func NewLifecycleHandler(recorder record.EventRecorder, vmiInformer cache.Shared
 	}
 }
 
-func (lh *LifecycleHandler) SaveHandler(request *restful.Request, response *restful.Response) {
+func (lh *LifecycleHandler) PrepareMemoryHandler(request *restful.Request, response *restful.Response) {
 	vmi, client, err := lh.getVMILauncherClient(request, response)
 	if err != nil {
 		return
 	}
 
-	snapshotPath := &v1.SaveSnapshotPath{}
-	if request.Request.Body == nil {
-		log.Log.Object(vmi).Reason(err).Error("No save snapshot path")
-		response.WriteError(http.StatusBadRequest, fmt.Errorf("failed to retrieve save snapshot path"))
-		return
-	}
-
-	defer request.Request.Body.Close()
-	err = yaml.NewYAMLOrJSONDecoder(request.Request.Body, 1024).Decode(snapshotPath)
+	err = client.PrepareMemoryVirtualMachine(vmi)
 	if err != nil {
-		log.Log.Object(vmi).Reason(err).Error("Failed to unmarshal save snapshot path in save request")
-		response.WriteError(http.StatusBadRequest, fmt.Errorf("failed to unmarshal save snapshot path"))
-		return
-	}
-
-	if snapshotPath.SnapeshotPath == "" {
-		log.Log.Object(vmi).Reason(err).Error("Save snapshot path in save request is not set")
-		response.WriteError(http.StatusBadRequest, fmt.Errorf("Save snapshot path in save request is not set"))
-		return
-	}
-
-	err = client.SaveVirtualMachine(vmi, snapshotPath.SnapeshotPath)
-	if err != nil {
-		log.Log.Object(vmi).Reason(err).Error("Failed to save VMI")
+		log.Log.Object(vmi).Reason(err).Error("Failed to prepare memory for VMI")
 		response.WriteError(http.StatusInternalServerError, err)
 		return
 	}
@@ -93,36 +72,15 @@ func (lh *LifecycleHandler) SaveHandler(request *restful.Request, response *rest
 	response.WriteHeader(http.StatusAccepted)
 }
 
-func (lh *LifecycleHandler) RestoreHandler(request *restful.Request, response *restful.Response) {
+func (lh *LifecycleHandler) ReleaseMemoryHandler(request *restful.Request, response *restful.Response) {
 	vmi, client, err := lh.getVMILauncherClient(request, response)
 	if err != nil {
 		return
 	}
 
-	snapshotPath := &v1.SaveSnapshotPath{}
-	if request.Request.Body == nil {
-		log.Log.Object(vmi).Reason(err).Error("No save snapshot path")
-		response.WriteError(http.StatusBadRequest, fmt.Errorf("failed to retrieve restore snapshot path"))
-		return
-	}
-
-	defer request.Request.Body.Close()
-	err = yaml.NewYAMLOrJSONDecoder(request.Request.Body, 1024).Decode(snapshotPath)
+	err = client.ReleaseMemoryVirtualMachine(vmi)
 	if err != nil {
-		log.Log.Object(vmi).Reason(err).Error("Failed to unmarshal restore snapshot path in restore request")
-		response.WriteError(http.StatusBadRequest, fmt.Errorf("failed to unmarshal restore snapshot path"))
-		return
-	}
-
-	if snapshotPath.SnapeshotPath == "" {
-		log.Log.Object(vmi).Reason(err).Error("Restore snapshot path in restore request is not set")
-		response.WriteError(http.StatusBadRequest, fmt.Errorf("Restore snapshot path in restore request is not set"))
-		return
-	}
-
-	err = client.RestoreVirtualMachine(vmi, snapshotPath.SnapeshotPath)
-	if err != nil {
-		log.Log.Object(vmi).Reason(err).Error("Failed to restore VMI")
+		log.Log.Object(vmi).Reason(err).Error("Failed to release memory from VMI")
 		response.WriteError(http.StatusInternalServerError, err)
 		return
 	}

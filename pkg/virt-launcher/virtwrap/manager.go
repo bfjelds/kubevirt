@@ -105,8 +105,6 @@ type contextStore struct {
 type DomainManager interface {
 	SyncVMI(*v1.VirtualMachineInstance, bool, *cmdv1.VirtualMachineOptions) (*api.DomainSpec, error)
 	PauseVMI(*v1.VirtualMachineInstance) error
-	SaveVMI(*v1.VirtualMachineInstance, string) error
-	RestoreVMI(*v1.VirtualMachineInstance, string) error
 	UnpauseVMI(*v1.VirtualMachineInstance) error
 	FreezeVMI(*v1.VirtualMachineInstance, int32) error
 	UnfreezeVMI(*v1.VirtualMachineInstance) error
@@ -888,30 +886,13 @@ func (l *LibvirtDomainManager) SyncVMI(vmi *v1.VirtualMachineInstance, allowEmul
 		// TODO: During post-update reboot, will we end up in this scope?  If so, this
 		// is the place to fork between create and restore.  If not, where should restore
 		// code exist???
-		availableSnapshotPath := getSnapshotPathIfAvailable(vmi)
-		if availableSnapshotPath != "" {
-			// If there is a snapshot and restore is configured, do restore
-			err = l.virConn.DomainRestore(availableSnapshotPath)
-			if err != nil {
-				logger.Reason(err).
-					Errorf("Failed to restpre VirtualMachineInstance from %v.", availableSnapshotPath)
-				return nil, err
-			}
-			// Remove the snapshot file
-			err = os.Remove(availableSnapshotPath)
-			if err != nil {
-				logger.Reason(err).
-					Errorf("Failed to remove snapshot file %v.", availableSnapshotPath)
-				return nil, err
-			}
-			// Unpause the vitual machine
-			err := dom.Resume()
-			if err != nil {
-				logger.Reason(err).Error("unpausing the VirtualMachineInstance failed.")
-				return nil, err
-			}
-			logger.Info("Domain unpaused.")
-		} else {
+		restored, err := restoreFromSnapshotIfAvailable(vmi, dom)
+		if err != nil {
+			// TODO: return error or fall through to default create behavior?
+			logger.Reason(err).Error("Failed restore VirtualMachineInstance from vmphu snapshot.")
+			return nil, err
+		}
+		if !restored {
 			// Otherwise, create a new domain
 			err = l.generateCloudInitISO(vmi, &dom)
 			if err != nil {
@@ -1319,84 +1300,6 @@ func (l *LibvirtDomainManager) PauseVMI(vmi *v1.VirtualMachineInstance) error {
 		l.paused.add(vmi.UID)
 	} else {
 		logger.Infof("Domain is not running for %s", vmi.GetObjectMeta().GetName())
-	}
-
-	return nil
-}
-
-func (l *LibvirtDomainManager) SaveVMI(vmi *v1.VirtualMachineInstance, destFile string) error {
-	l.domainModifyLock.Lock()
-	defer l.domainModifyLock.Unlock()
-
-	logger := log.Log.Object(vmi)
-
-	domName := util.VMINamespaceKeyFunc(vmi)
-	dom, err := l.virConn.LookupDomainByName(domName)
-	if err != nil {
-		// If the VirtualMachineInstance does not exist, we are done
-		if domainerrors.IsNotFound(err) {
-			return fmt.Errorf("Domain not found.")
-		} else {
-			logger.Reason(err).Error("Getting the domain failed during pause.")
-			return err
-		}
-	}
-	defer dom.Free()
-
-	domState, _, err := dom.GetState()
-	if err != nil {
-		logger.Reason(err).Error(failedGetDomainState)
-		return err
-	}
-
-	if domState == libvirt.DOMAIN_PAUSED {
-		err = dom.Save(destFile)
-		if err != nil {
-			logger.Reason(err).Error("Signalling save failed.")
-			return err
-		}
-		logger.Infof("Signaled save for %s", vmi.GetObjectMeta().GetName())
-	} else {
-		logger.Infof("Domain is not paused for %s", vmi.GetObjectMeta().GetName())
-	}
-
-	return nil
-}
-
-func (l *LibvirtDomainManager) RestoreVMI(vmi *v1.VirtualMachineInstance, srcFile string) error {
-	l.domainModifyLock.Lock()
-	defer l.domainModifyLock.Unlock()
-
-	logger := log.Log.Object(vmi)
-
-	domName := util.VMINamespaceKeyFunc(vmi)
-	dom, err := l.virConn.LookupDomainByName(domName)
-	if err != nil {
-		// If the VirtualMachineInstance does not exist, we are done
-		if domainerrors.IsNotFound(err) {
-			return fmt.Errorf("Domain not found.")
-		} else {
-			logger.Reason(err).Error("Getting the domain failed during pause.")
-			return err
-		}
-	}
-	defer dom.Free()
-
-	domState, _, err := dom.GetState()
-	if err != nil {
-		logger.Reason(err).Error(failedGetDomainState)
-		return err
-	}
-
-	if domState == libvirt.DOMAIN_PAUSED {
-		err = l.virConn.DomainRestore(srcFile)
-		if err != nil {
-			logger.Reason(err).Error("Signalling restore failed.")
-			return err
-		}
-		logger.Infof("Signaled restore for %s", vmi.GetObjectMeta().GetName())
-	} else {
-		logger.Infof("Domain is not paused for %s", vmi.GetObjectMeta().GetName())
 	}
 
 	return nil
@@ -1991,19 +1894,25 @@ func getDomainCreateFlags(vmi *v1.VirtualMachineInstance) libvirt.DomainCreateFl
 	return flags
 }
 
-func getSnapshotPathIfAvailable(vmi *v1.VirtualMachineInstance) string {
-	if vmi.Spec.PersistenceConfiguration.RestoreStrategy == v1.RestoreStrategySnapshotAvailable &&
-		vmi.Spec.PersistenceConfiguration.PersistenceVolume != "" {
-		for _, volume := range vmi.Spec.Volumes {
-			if volume.Name == vmi.Spec.PersistenceConfiguration.PersistenceVolume {
-				snapshotPath := filepath.Join("/persisthostupdate", vmi.Name)
-				if _, err := os.Stat(snapshotPath); err == nil {
-					return snapshotPath
-				} else {
-					return ""
-				}
-			}
-		}
+func restoreFromSnapshotIfAvailable(vmi *v1.VirtualMachineInstance, dom cli.VirDomain) (bool, error) {
+	if vmi.Spec.PersistenceConfiguration.RestoreStrategy != v1.RestoreStrategySnapshotAvailable {
+		return false, nil
 	}
-	return ""
+
+	// If there is a snapshot and restore is configured, do restore
+	snapshot, err := dom.SnapshotLookupByName("vmphu-snapshot", 0)
+	if libvirtError, ok := err.(libvirt.Error); ok &&
+		(libvirtError.Code != libvirt.ERR_NO_DOMAIN_SNAPSHOT) {
+		log.DefaultLogger().Error("getting vmphu snapshot failed.")
+		return false, err
+	}
+
+	err = snapshot.RevertToSnapshot(libvirt.DOMAIN_SNAPSHOT_REVERT_RUNNING | libvirt.DOMAIN_SNAPSHOT_REVERT_FORCE)
+	if err != nil {
+		log.DefaultLogger().Error("revert to vmphu snapshot failed.")
+		return false, err
+	}
+
+	log.DefaultLogger().Info("vmphu snapshot reverted.")
+	return true, nil
 }

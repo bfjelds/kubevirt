@@ -209,39 +209,43 @@ func (l *Launcher) PauseVirtualMachine(_ context.Context, request *cmdv1.VMIRequ
 	return response, nil
 }
 
-func (l *Launcher) SaveVirtualMachine(_ context.Context, request *cmdv1.PersistRequest) (*cmdv1.Response, error) {
+func (l *Launcher) PrepareMemoryVirtualMachine(_ context.Context, request *cmdv1.VMIRequest) (*cmdv1.Response, error) {
 
 	vmi, response := getVMIFromRequest(request.Vmi)
 	if !response.Success {
 		return response, nil
 	}
 
-	if err := l.domainManager.SaveVMI(vmi, request.PersistPath); err != nil {
-		log.Log.Object(vmi).Reason(err).Errorf("Failed to save vmi")
-		response.Success = false
-		response.Message = getErrorMessage(err)
-		return response, nil
-	}
+	// TODO: invoke memory manager
 
-	log.Log.Object(vmi).Info("Saved vmi")
+	// if err := l.domainManager.SaveVMI(vmi, request.PersistPath); err != nil {
+	// 	log.Log.Object(vmi).Reason(err).Errorf("Failed to save vmi")
+	// 	response.Success = false
+	// 	response.Message = getErrorMessage(err)
+	// 	return response, nil
+	// }
+
+	log.Log.Object(vmi).Info("Prepared memory for vmi")
 	return response, nil
 }
 
-func (l *Launcher) RestoreVirtualMachine(_ context.Context, request *cmdv1.PersistRequest) (*cmdv1.Response, error) {
+func (l *Launcher) ReleaseMemoryVirtualMachine(_ context.Context, request *cmdv1.VMIRequest) (*cmdv1.Response, error) {
 
 	vmi, response := getVMIFromRequest(request.Vmi)
 	if !response.Success {
 		return response, nil
 	}
 
-	if err := l.domainManager.RestoreVMI(vmi, request.PersistPath); err != nil {
-		log.Log.Object(vmi).Reason(err).Errorf("Failed to restore vmi")
-		response.Success = false
-		response.Message = getErrorMessage(err)
-		return response, nil
-	}
+	// TODO: invoke memory manager
 
-	log.Log.Object(vmi).Info("Restored vmi")
+	// if err := l.domainManager.SaveVMI(vmi, request.PersistPath); err != nil {
+	// 	log.Log.Object(vmi).Reason(err).Errorf("Failed to save vmi")
+	// 	response.Success = false
+	// 	response.Message = getErrorMessage(err)
+	// 	return response, nil
+	// }
+
+	log.Log.Object(vmi).Info("Released memory for vmi")
 	return response, nil
 }
 

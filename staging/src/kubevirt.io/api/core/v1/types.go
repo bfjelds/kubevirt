@@ -1959,22 +1959,6 @@ type PauseOptions struct {
 	DryRun []string `json:"dryRun,omitempty" protobuf:"bytes,1,rep,name=dryRun"`
 }
 
-// PersistOptions may be provided on save or restore request.
-type PersistOptions struct {
-	metav1.TypeMeta `json:",inline"`
-
-	PersistPath string `json:"persistPath,omitempty"`
-
-	// When present, indicates that modifications should not be
-	// persisted. An invalid or unrecognized dryRun directive will
-	// result in an error response and no further processing of the
-	// request. Valid values are:
-	// - All: all dry run stages will be processed
-	// +optional
-	// +listType=atomic
-	DryRun []string `json:"dryRun,omitempty" protobuf:"bytes,1,rep,name=dryRun"`
-}
-
 // UnpauseOptions may be provided on unpause request.
 type UnpauseOptions struct {
 	metav1.TypeMeta `json:",inline"`
@@ -2097,11 +2081,6 @@ type VirtualMachineInstanceFileSystem struct {
 // FreezeUnfreezeTimeout represent the time unfreeze will be triggered if guest was not unfrozen by unfreeze command
 type FreezeUnfreezeTimeout struct {
 	UnfreezeTimeout *metav1.Duration `json:"unfreezeTimeout"`
-}
-
-// FreezeUnfreezeTimeout represent the time unfreeze will be triggered if guest was not unfrozen by unfreeze command
-type SaveSnapshotPath struct {
-	SnapeshotPath string `json:"snapshotPath"`
 }
 
 // VirtualMachineMemoryDumpRequest represent the memory dump request phase and info

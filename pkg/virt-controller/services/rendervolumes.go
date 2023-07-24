@@ -379,7 +379,7 @@ func withSRIOVPciMapAnnotation() VolumeRendererOption {
 
 func withPersistenceVolume(volumeName string) VolumeRendererOption {
 	return func(renderer *VolumeRenderer) error {
-		renderer.podVolumeMounts = append(renderer.podVolumeMounts, mountPath(volumeName, "/persisthostupdate"))
+		renderer.podVolumeMounts = append(renderer.podVolumeMounts, mountPath(volumeName, "/var/lib/libvirt/qemu"))
 		// renderer.podVolumes doesn't need to be changed because the PersistenceVolume should already
 		// be in the vmi.Volumes list
 		return nil

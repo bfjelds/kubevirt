@@ -1330,68 +1330,6 @@ func (app *SubresourceAPIApp) vmVolumePatchStatus(name, namespace string, volume
 	return nil
 }
 
-func (app *SubresourceAPIApp) saveRequestHandler(request *restful.Request, response *restful.Response, ephemeral bool) {
-	validate := func(vmi *v1.VirtualMachineInstance) *errors.StatusError {
-		condManager := controller.NewVirtualMachineInstanceConditionManager()
-		if !condManager.HasCondition(vmi, v1.VirtualMachineInstancePaused) {
-			return errors.NewConflict(v1.Resource("virtualmachineinstance"), vmi.Name, fmt.Errorf("VMI is not paused"))
-		}
-		return nil
-	}
-
-	getURL := func(vmi *v1.VirtualMachineInstance, conn kubecli.VirtHandlerConn) (string, error) {
-		return conn.SaveURI(vmi)
-	}
-
-	bodyStruct := &v1.PersistOptions{}
-	if request.Request.Body != nil {
-		err := yaml.NewYAMLOrJSONDecoder(request.Request.Body, 1024).Decode(&bodyStruct)
-		switch err {
-		case io.EOF, nil:
-			break
-		default:
-			writeError(errors.NewBadRequest(fmt.Sprintf(unmarshalRequestErrFmt, err)), response)
-			return
-		}
-	}
-	var dryRun bool
-	if len(bodyStruct.DryRun) > 0 && bodyStruct.DryRun[0] == k8smetav1.DryRunAll {
-		dryRun = true
-	}
-	app.putRequestHandler(request, response, validate, getURL, dryRun)
-}
-
-func (app *SubresourceAPIApp) restoreRequestHandler(request *restful.Request, response *restful.Response, ephemeral bool) {
-	validate := func(vmi *v1.VirtualMachineInstance) *errors.StatusError {
-		condManager := controller.NewVirtualMachineInstanceConditionManager()
-		if !condManager.HasCondition(vmi, v1.VirtualMachineInstancePaused) {
-			return errors.NewConflict(v1.Resource("virtualmachineinstance"), vmi.Name, fmt.Errorf("VMI is not paused"))
-		}
-		return nil
-	}
-
-	getURL := func(vmi *v1.VirtualMachineInstance, conn kubecli.VirtHandlerConn) (string, error) {
-		return conn.RestoreURI(vmi)
-	}
-
-	bodyStruct := &v1.PersistOptions{}
-	if request.Request.Body != nil {
-		err := yaml.NewYAMLOrJSONDecoder(request.Request.Body, 1024).Decode(&bodyStruct)
-		switch err {
-		case io.EOF, nil:
-			break
-		default:
-			writeError(errors.NewBadRequest(fmt.Sprintf(unmarshalRequestErrFmt, err)), response)
-			return
-		}
-	}
-	var dryRun bool
-	if len(bodyStruct.DryRun) > 0 && bodyStruct.DryRun[0] == k8smetav1.DryRunAll {
-		dryRun = true
-	}
-	app.putRequestHandler(request, response, validate, getURL, dryRun)
-}
-
 func (app *SubresourceAPIApp) getDryRunOption(volumeRequest *v1.VirtualMachineVolumeRequest) []string {
 	var dryRunOption []string
 	if options := volumeRequest.AddVolumeOptions; options != nil && options.DryRun != nil && options.DryRun[0] == k8smetav1.DryRunAll {
@@ -1415,26 +1353,6 @@ func (app *SubresourceAPIApp) VMRemoveVolumeRequestHandler(request *restful.Requ
 // VMIAddVolumeRequestHandler handles the subresource for hot plugging a volume and disk.
 func (app *SubresourceAPIApp) VMIAddVolumeRequestHandler(request *restful.Request, response *restful.Response) {
 	app.addVolumeRequestHandler(request, response, true)
-}
-
-// VMSaveRequestHandler handles the subresource for preserving VM.
-func (app *SubresourceAPIApp) VMSaveRequestHandler(request *restful.Request, response *restful.Response) {
-	app.saveRequestHandler(request, response, false)
-}
-
-// VMISaveRequestHandler handles the subresource for preserving VMI.
-func (app *SubresourceAPIApp) VMISaveRequestHandler(request *restful.Request, response *restful.Response) {
-	app.saveRequestHandler(request, response, true)
-}
-
-// VMRestoreRequestHandler handles the subresource for preserving VM.
-func (app *SubresourceAPIApp) VMRestoreRequestHandler(request *restful.Request, response *restful.Response) {
-	app.restoreRequestHandler(request, response, false)
-}
-
-// VMIRestoreRequestHandler handles the subresource for preserving VMI.
-func (app *SubresourceAPIApp) VMIRestoreRequestHandler(request *restful.Request, response *restful.Response) {
-	app.restoreRequestHandler(request, response, true)
 }
 
 // VMIRemoveVolumeRequestHandler handles the subresource for hot plugging a volume and disk.
@@ -1677,4 +1595,32 @@ func (app *SubresourceAPIApp) RemoveMemoryDumpVMRequestHandler(request *restful.
 	}
 
 	response.WriteHeader(http.StatusAccepted)
+}
+
+// VMIPrepareMemoryRequestHandler handles the subresource for preserving VMI.
+func (app *SubresourceAPIApp) VMIPrepareMemoryRequestHandler(request *restful.Request, response *restful.Response) {
+	validate := func(vmi *v1.VirtualMachineInstance) *errors.StatusError {
+		// TODO: is any validation needed?
+		return nil
+	}
+
+	getURL := func(vmi *v1.VirtualMachineInstance, conn kubecli.VirtHandlerConn) (string, error) {
+		return conn.PrepareMemoryURI(vmi)
+	}
+
+	app.putRequestHandler(request, response, validate, getURL, false)
+}
+
+// VMIReleaseMemoryRequestHandler handles the subresource for preserving VMI.
+func (app *SubresourceAPIApp) VMIReleaseMemoryRequestHandler(request *restful.Request, response *restful.Response) {
+	validate := func(vmi *v1.VirtualMachineInstance) *errors.StatusError {
+		// TODO: only allow if VM/VMI is deleted?
+		return nil
+	}
+
+	getURL := func(vmi *v1.VirtualMachineInstance, conn kubecli.VirtHandlerConn) (string, error) {
+		return conn.ReleaseMemoryURI(vmi)
+	}
+
+	app.putRequestHandler(request, response, validate, getURL, false)
 }

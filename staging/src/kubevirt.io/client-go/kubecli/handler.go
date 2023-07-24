@@ -23,8 +23,8 @@ const (
 	vncTemplateURI            = "wss://%s:%v/v1/namespaces/%s/virtualmachineinstances/%s/vnc"
 	vsockTemplateURI          = "wss://%s:%v/v1/namespaces/%s/virtualmachineinstances/%s/vsock"
 	pauseTemplateURI          = "https://%s:%v/v1/namespaces/%s/virtualmachineinstances/%s/pause"
-	saveTemplateURI           = "https://%s:%v/v1/namespaces/%s/virtualmachineinstances/%s/save"
-	restoreTemplateURI        = "https://%s:%v/v1/namespaces/%s/virtualmachineinstances/%s/restore"
+	prepareMemoryTemplateURI  = "https://%s:%v/v1/namespaces/%s/virtualmachineinstances/%s/preparememory"
+	releaseMemoryTemplateURI  = "https://%s:%v/v1/namespaces/%s/virtualmachineinstances/%s/releasememory"
 	unpauseTemplateURI        = "https://%s:%v/v1/namespaces/%s/virtualmachineinstances/%s/unpause"
 	freezeTemplateURI         = "https://%s:%v/v1/namespaces/%s/virtualmachineinstances/%s/freeze"
 	unfreezeTemplateURI       = "https://%s:%v/v1/namespaces/%s/virtualmachineinstances/%s/unfreeze"
@@ -56,8 +56,8 @@ type VirtHandlerConn interface {
 	VNCURI(vmi *virtv1.VirtualMachineInstance) (string, error)
 	VSOCKURI(vmi *virtv1.VirtualMachineInstance, port string, tls string) (string, error)
 	PauseURI(vmi *virtv1.VirtualMachineInstance) (string, error)
-	SaveURI(vmi *virtv1.VirtualMachineInstance) (string, error)
-	RestoreURI(vmi *virtv1.VirtualMachineInstance) (string, error)
+	PrepareMemoryURI(vmi *virtv1.VirtualMachineInstance) (string, error)
+	ReleaseMemoryURI(vmi *virtv1.VirtualMachineInstance) (string, error)
 	UnpauseURI(vmi *virtv1.VirtualMachineInstance) (string, error)
 	FreezeURI(vmi *virtv1.VirtualMachineInstance) (string, error)
 	UnfreezeURI(vmi *virtv1.VirtualMachineInstance) (string, error)
@@ -206,12 +206,12 @@ func (v *virtHandlerConn) PauseURI(vmi *virtv1.VirtualMachineInstance) (string, 
 	return v.formatURI(pauseTemplateURI, vmi)
 }
 
-func (v *virtHandlerConn) SaveURI(vmi *virtv1.VirtualMachineInstance) (string, error) {
-	return v.formatURI(saveTemplateURI, vmi)
+func (v *virtHandlerConn) PrepareMemoryURI(vmi *virtv1.VirtualMachineInstance) (string, error) {
+	return v.formatURI(prepareMemoryTemplateURI, vmi)
 }
 
-func (v *virtHandlerConn) RestoreURI(vmi *virtv1.VirtualMachineInstance) (string, error) {
-	return v.formatURI(restoreTemplateURI, vmi)
+func (v *virtHandlerConn) ReleaseMemoryURI(vmi *virtv1.VirtualMachineInstance) (string, error) {
+	return v.formatURI(releaseMemoryTemplateURI, vmi)
 }
 
 func (v *virtHandlerConn) UnpauseURI(vmi *virtv1.VirtualMachineInstance) (string, error) {

@@ -279,22 +279,21 @@ func (v *vmis) Pause(ctx context.Context, name string, pauseOptions *v1.PauseOpt
 	return v.restClient.Put().AbsPath(uri).Body(body).Do(ctx).Error()
 }
 
-func (v *vmis) Save(ctx context.Context, name string, persistOptions *v1.PersistOptions) error {
-	body, err := json.Marshal(persistOptions)
+func (v *vmis) PrepareMemory(ctx context.Context, name string) (string, error) {
+	log.Log.Infof("Prepare memory for VMI")
+	uri := fmt.Sprintf(vmiSubresourceURL, v1.ApiStorageVersion, v.namespace, name, "preparememory")
+	res := v.restClient.Get().AbsPath(uri).Do(ctx)
+	raw, err := res.Raw()
 	if err != nil {
-		return fmt.Errorf("Cannot Marshal to json: %s", err)
+		return "", res.Error()
 	}
-	uri := fmt.Sprintf(vmiSubresourceURL, v1.ApiStorageVersion, v.namespace, name, "save")
-	return v.restClient.Put().AbsPath(uri).Body(body).Do(ctx).Error()
+	return string(raw), nil
 }
 
-func (v *vmis) Restore(ctx context.Context, name string, persistOptions *v1.PersistOptions) error {
-	body, err := json.Marshal(persistOptions)
-	if err != nil {
-		return fmt.Errorf("Cannot Marshal to json: %s", err)
-	}
-	uri := fmt.Sprintf(vmiSubresourceURL, v1.ApiStorageVersion, v.namespace, name, "restore")
-	return v.restClient.Put().AbsPath(uri).Body(body).Do(ctx).Error()
+func (v *vmis) ReleaseMemory(ctx context.Context, name string) error {
+	log.Log.Infof("Release memory for VMI")
+	uri := fmt.Sprintf(vmiSubresourceURL, v1.ApiStorageVersion, v.namespace, name, "releasememory")
+	return v.restClient.Put().AbsPath(uri).Do(ctx).Error()
 }
 
 func (v *vmis) Unpause(ctx context.Context, name string, unpauseOptions *v1.UnpauseOptions) error {
