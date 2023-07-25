@@ -692,7 +692,7 @@ func (t *templateService) newVolumeRenderer(vmi *v1.VirtualMachineInstance, name
 		volumeOpts = append(volumeOpts, withSRIOVPciMapAnnotation())
 	}
 
-	if vmi.Spec.PersistenceConfiguration.PersistenceVolume != "" {
+	if vmi.Spec.PersistenceConfiguration != nil && vmi.Spec.PersistenceConfiguration.PersistenceVolume != "" {
 		volumeOpts = append(volumeOpts, withPersistenceVolume(vmi.Spec.PersistenceConfiguration.PersistenceVolume))
 	}
 

@@ -1068,7 +1068,7 @@ func (c *VMIController) sync(vmi *virtv1.VirtualMachineInstance, pod *k8sv1.Pod,
 			return &syncErrorImpl{fmt.Errorf(failedToRenderLaunchManifestErrFormat, err), FailedCreatePodReason}
 		}
 
-		if vmi.Spec.PersistenceConfiguration.PersistenceVolume != "" {
+		if vmi.Spec.PersistenceConfiguration != nil && vmi.Spec.PersistenceConfiguration.PersistenceVolume != "" {
 			persistentMemoryLocation, err := c.clientset.VirtualMachineInstance(vmi.Namespace).PrepareMemory(context.Background(), vmi.Name)
 			if err != nil {
 				psaErr := fmt.Errorf("failed to prepare memory for for vmi %s/%s: %w", vmi.GetNamespace(), vmi.GetName(), err)

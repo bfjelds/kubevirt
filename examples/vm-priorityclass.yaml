@@ -24,7 +24,6 @@ spec:
         resources:
           requests:
             memory: 128Mi
-      persistenceConfiguration: {}
       priorityClassName: non-preemtible
       terminationGracePeriodSeconds: 0
       volumes:

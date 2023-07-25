@@ -4748,7 +4748,11 @@ func (in *VirtualMachineInstanceSpec) DeepCopyInto(out *VirtualMachineInstanceSp
 			(*in)[i].DeepCopyInto(&(*out)[i])
 		}
 	}
-	out.PersistenceConfiguration = in.PersistenceConfiguration
+	if in.PersistenceConfiguration != nil {
+		in, out := &in.PersistenceConfiguration, &out.PersistenceConfiguration
+		*out = new(PersistenceConfiguration)
+		**out = **in
+	}
 	if in.LivenessProbe != nil {
 		in, out := &in.LivenessProbe, &out.LivenessProbe
 		*out = new(Probe)

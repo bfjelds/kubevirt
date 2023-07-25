@@ -1897,7 +1897,7 @@ func getDomainCreateFlags(vmi *v1.VirtualMachineInstance) libvirt.DomainCreateFl
 }
 
 func restoreFromSnapshotIfAvailable(vmi *v1.VirtualMachineInstance, dom cli.VirDomain) (bool, error) {
-	if vmi.Spec.PersistenceConfiguration.RestoreStrategy != v1.RestoreStrategySnapshotAvailable {
+	if vmi.Spec.PersistenceConfiguration != nil && vmi.Spec.PersistenceConfiguration.RestoreStrategy != v1.RestoreStrategySnapshotAvailable {
 		return false, nil
 	}
 

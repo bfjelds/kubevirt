@@ -1368,7 +1368,7 @@ func Convert_v1_VirtualMachineInstance_To_api_Domain(vmi *v1.VirtualMachineInsta
 		return err
 	}
 
-	if vmi.Spec.PersistenceConfiguration.RestoreStrategy == v1.RestoreStrategySnapshotAvailable {
+	if vmi.Spec.PersistenceConfiguration != nil && vmi.Spec.PersistenceConfiguration.RestoreStrategy == v1.RestoreStrategySnapshotAvailable {
 		if domain.Spec.MemoryBacking == nil {
 			domain.Spec.MemoryBacking = &api.MemoryBacking{}
 		}

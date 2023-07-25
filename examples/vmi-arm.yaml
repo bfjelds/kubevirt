@@ -21,7 +21,6 @@ spec:
     resources:
       requests:
         memory: 256Mi
-  persistenceConfiguration: {}
   terminationGracePeriodSeconds: 0
   volumes:
   - containerDisk:

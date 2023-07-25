@@ -123,7 +123,7 @@ type VirtualMachineInstanceSpec struct {
 	// List of volumes that can be mounted by disks belonging to the vmi.
 	Volumes []Volume `json:"volumes,omitempty"`
 	// Persistence configuration for the VirtualMachineInstance.
-	PersistenceConfiguration PersistenceConfiguration `json:"persistenceConfiguration,omitempty"`
+	PersistenceConfiguration *PersistenceConfiguration `json:"persistenceConfiguration,omitempty"`
 	// Periodic probe of VirtualMachineInstance liveness.
 	// VirtualmachineInstances will be stopped if the probe fails.
 	// Cannot be updated.
