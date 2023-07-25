@@ -507,6 +507,14 @@ func (app *virtAPIApp) composeSubresources() {
 			Returns(http.StatusOK, "OK", "").
 			Returns(http.StatusInternalServerError, httpStatusInternalServerError, ""))
 
+		subws.Route(subws.PUT(definitions.NamespacedResourcePath(subresourcesvmiGVR)+definitions.SubResourcePath("createsnapshot")).
+			To(subresourceApp.VMICreateSnapshotRequestHandler).
+			Param(definitions.NamespaceParam(subws)).Param(definitions.NameParam(subws)).
+			Operation(version.Version+"vmi-createSnapshot").
+			Doc("Create snapshot for a Virtual Machine Instance").
+			Returns(http.StatusOK, "OK", "").
+			Returns(http.StatusBadRequest, httpStatusBadRequestMessage, ""))
+
 		subws.Route(subws.PUT(definitions.NamespacedResourcePath(subresourcesvmiGVR)+definitions.SubResourcePath("preparememory")).
 			To(subresourceApp.VMIPrepareMemoryRequestHandler).
 			Param(definitions.NamespaceParam(subws)).Param(definitions.NameParam(subws)).
@@ -611,6 +619,10 @@ func (app *virtAPIApp) composeSubresources() {
 					},
 					{
 						Name:       "virtualmachineinstances/removevolume",
+						Namespaced: true,
+					},
+					{
+						Name:       "virtualmachineinstances/createsnapshot",
 						Namespaced: true,
 					},
 					{
