@@ -62,6 +62,38 @@ func (_mr *_MockCmdClientRecorder) PauseVirtualMachine(arg0, arg1 interface{}, a
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "PauseVirtualMachine", _s...)
 }
 
+func (_m *MockCmdClient) PrepareMemoryVirtualMachine(ctx context.Context, in *VMIRequest, opts ...grpc.CallOption) (*Response, error) {
+	_s := []interface{}{ctx, in}
+	for _, _x := range opts {
+		_s = append(_s, _x)
+	}
+	ret := _m.ctrl.Call(_m, "PrepareMemoryVirtualMachine", _s...)
+	ret0, _ := ret[0].(*Response)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+func (_mr *_MockCmdClientRecorder) PrepareMemoryVirtualMachine(arg0, arg1 interface{}, arg2 ...interface{}) *gomock.Call {
+	_s := append([]interface{}{arg0, arg1}, arg2...)
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "PrepareMemoryVirtualMachine", _s...)
+}
+
+func (_m *MockCmdClient) ReleaseMemoryVirtualMachine(ctx context.Context, in *VMIRequest, opts ...grpc.CallOption) (*Response, error) {
+	_s := []interface{}{ctx, in}
+	for _, _x := range opts {
+		_s = append(_s, _x)
+	}
+	ret := _m.ctrl.Call(_m, "ReleaseMemoryVirtualMachine", _s...)
+	ret0, _ := ret[0].(*Response)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+func (_mr *_MockCmdClientRecorder) ReleaseMemoryVirtualMachine(arg0, arg1 interface{}, arg2 ...interface{}) *gomock.Call {
+	_s := append([]interface{}{arg0, arg1}, arg2...)
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "ReleaseMemoryVirtualMachine", _s...)
+}
+
 func (_m *MockCmdClient) UnpauseVirtualMachine(ctx context.Context, in *VMIRequest, opts ...grpc.CallOption) (*Response, error) {
 	_s := []interface{}{ctx, in}
 	for _, _x := range opts {
@@ -455,6 +487,28 @@ func (_m *MockCmdServer) PauseVirtualMachine(_param0 context.Context, _param1 *V
 
 func (_mr *_MockCmdServerRecorder) PauseVirtualMachine(arg0, arg1 interface{}) *gomock.Call {
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "PauseVirtualMachine", arg0, arg1)
+}
+
+func (_m *MockCmdServer) PrepareMemoryVirtualMachine(_param0 context.Context, _param1 *VMIRequest) (*Response, error) {
+	ret := _m.ctrl.Call(_m, "PrepareMemoryVirtualMachine", _param0, _param1)
+	ret0, _ := ret[0].(*Response)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+func (_mr *_MockCmdServerRecorder) PrepareMemoryVirtualMachine(arg0, arg1 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "PrepareMemoryVirtualMachine", arg0, arg1)
+}
+
+func (_m *MockCmdServer) ReleaseMemoryVirtualMachine(_param0 context.Context, _param1 *VMIRequest) (*Response, error) {
+	ret := _m.ctrl.Call(_m, "ReleaseMemoryVirtualMachine", _param0, _param1)
+	ret0, _ := ret[0].(*Response)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+func (_mr *_MockCmdServerRecorder) ReleaseMemoryVirtualMachine(arg0, arg1 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "ReleaseMemoryVirtualMachine", arg0, arg1)
 }
 
 func (_m *MockCmdServer) UnpauseVirtualMachine(_param0 context.Context, _param1 *VMIRequest) (*Response, error) {

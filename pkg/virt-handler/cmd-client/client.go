@@ -80,6 +80,7 @@ type MigrationOptions struct {
 type LauncherClient interface {
 	SyncVirtualMachine(vmi *v1.VirtualMachineInstance, options *cmdv1.VirtualMachineOptions) error
 	PauseVirtualMachine(vmi *v1.VirtualMachineInstance) error
+	CreateSnapshotVirtualMachine(vmi *v1.VirtualMachineInstance) error
 	PrepareMemoryVirtualMachine(vmi *v1.VirtualMachineInstance) error
 	ReleaseMemoryVirtualMachine(vmi *v1.VirtualMachineInstance) error
 	UnpauseVirtualMachine(vmi *v1.VirtualMachineInstance) error
@@ -418,6 +419,10 @@ func (c *VirtLauncherClient) SyncVirtualMachine(vmi *v1.VirtualMachineInstance, 
 
 func (c *VirtLauncherClient) PauseVirtualMachine(vmi *v1.VirtualMachineInstance) error {
 	return c.genericSendVMICmd("Pause", c.v1client.PauseVirtualMachine, vmi, &cmdv1.VirtualMachineOptions{})
+}
+
+func (c *VirtLauncherClient) CreateSnapshotVirtualMachine(vmi *v1.VirtualMachineInstance) error {
+	return c.genericSendVMICmd("CreateSnapshot", c.v1client.CreateSnapshotVirtualMachine, vmi, &cmdv1.VirtualMachineOptions{})
 }
 
 func (c *VirtLauncherClient) PrepareMemoryVirtualMachine(vmi *v1.VirtualMachineInstance) error {

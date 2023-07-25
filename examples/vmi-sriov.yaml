@@ -30,6 +30,7 @@ spec:
   - multus:
       networkName: sriov/sriov-network
     name: sriov-net
+  persistenceConfiguration: {}
   terminationGracePeriodSeconds: 0
   volumes:
   - containerDisk:

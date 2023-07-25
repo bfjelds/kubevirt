@@ -458,8 +458,6 @@ type VirDomain interface {
 	GetState() (libvirt.DomainState, int, error)
 	Create() error
 	CreateWithFlags(flags libvirt.DomainCreateFlags) error
-	SnapshotLookupByName(name string, flags uint32) (*libvirt.DomainSnapshot, error)
-	// Restore(srcFile string) error
 	Suspend() error
 	Resume() error
 	BlockResize(disk string, size uint64, flags libvirt.DomainBlockResizeFlags) error
@@ -487,6 +485,8 @@ type VirDomain interface {
 	AbortJob() error
 	Free() error
 	CoreDumpWithFormat(to string, format libvirt.DomainCoreDumpFormat, flags libvirt.DomainCoreDumpFlags) error
+	SnapshotLookupByName(name string, flags uint32) (*libvirt.DomainSnapshot, error)
+	CreateSnapshotXML(xml string, flags libvirt.DomainSnapshotCreateFlags) (*libvirt.DomainSnapshot, error)
 }
 
 func NewConnection(uri string, user string, pass string, checkInterval time.Duration) (Connection, error) {

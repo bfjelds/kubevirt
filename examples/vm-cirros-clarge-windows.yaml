@@ -26,6 +26,7 @@ spec:
           - disk: {}
             name: cloudinitdisk
         resources: {}
+      persistenceConfiguration: {}
       terminationGracePeriodSeconds: 0
       volumes:
       - containerDisk:

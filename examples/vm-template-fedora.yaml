@@ -51,6 +51,7 @@ objects:
         networks:
         - name: default
           pod: {}
+        persistenceConfiguration: {}
         terminationGracePeriodSeconds: 0
         volumes:
         - cloudInitNoCloud:

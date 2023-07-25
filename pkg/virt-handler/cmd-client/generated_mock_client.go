@@ -53,6 +53,26 @@ func (_mr *_MockLauncherClientRecorder) PauseVirtualMachine(arg0 interface{}) *g
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "PauseVirtualMachine", arg0)
 }
 
+func (_m *MockLauncherClient) PrepareMemoryVirtualMachine(vmi *v1.VirtualMachineInstance) error {
+	ret := _m.ctrl.Call(_m, "PrepareMemoryVirtualMachine", vmi)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+func (_mr *_MockLauncherClientRecorder) PrepareMemoryVirtualMachine(arg0 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "PrepareMemoryVirtualMachine", arg0)
+}
+
+func (_m *MockLauncherClient) ReleaseMemoryVirtualMachine(vmi *v1.VirtualMachineInstance) error {
+	ret := _m.ctrl.Call(_m, "ReleaseMemoryVirtualMachine", vmi)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+func (_mr *_MockLauncherClientRecorder) ReleaseMemoryVirtualMachine(arg0 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "ReleaseMemoryVirtualMachine", arg0)
+}
+
 func (_m *MockLauncherClient) UnpauseVirtualMachine(vmi *v1.VirtualMachineInstance) error {
 	ret := _m.ctrl.Call(_m, "UnpauseVirtualMachine", vmi)
 	ret0, _ := ret[0].(error)

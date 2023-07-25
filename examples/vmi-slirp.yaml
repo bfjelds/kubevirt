@@ -29,6 +29,7 @@ spec:
   networks:
   - name: testSlirp
     pod: {}
+  persistenceConfiguration: {}
   terminationGracePeriodSeconds: 0
   volumes:
   - containerDisk:

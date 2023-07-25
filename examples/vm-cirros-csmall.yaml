@@ -24,6 +24,7 @@ spec:
               bus: virtio
             name: cloudinitdisk
         resources: {}
+      persistenceConfiguration: {}
       terminationGracePeriodSeconds: 0
       volumes:
       - containerDisk:

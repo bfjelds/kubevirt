@@ -30,6 +30,7 @@ spec:
   - multus:
       networkName: ptp-conf
     name: ptp
+  persistenceConfiguration: {}
   terminationGracePeriodSeconds: 0
   volumes:
   - containerDisk:

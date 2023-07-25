@@ -91,6 +91,7 @@ const (
 	failedGetDomain                 = "Getting the domain failed."
 	failedGetDomainState            = "Getting the domain state failed."
 	failedDomainMemoryDump          = "Domain memory dump failed"
+	failedSnapshotCreation          = "Snapshot creation failed"
 	affectLiveAndConfigLibvirtFlags = libvirt.DOMAIN_DEVICE_MODIFY_LIVE | libvirt.DOMAIN_DEVICE_MODIFY_CONFIG
 )
 
@@ -128,6 +129,7 @@ type DomainManager interface {
 	Exec(string, string, []string, int32) (string, error)
 	GuestPing(string) error
 	MemoryDump(vmi *v1.VirtualMachineInstance, dumpPath string) error
+	CreateSnapshotVMI(vmi *v1.VirtualMachineInstance) error
 }
 
 type LibvirtDomainManager struct {
@@ -1915,4 +1917,59 @@ func restoreFromSnapshotIfAvailable(vmi *v1.VirtualMachineInstance, dom cli.VirD
 
 	log.DefaultLogger().Info("vmphu snapshot reverted.")
 	return true, nil
+}
+
+type SnapshotXML struct {
+	Name string `xml:"Name"`
+}
+
+func (l *LibvirtDomainManager) CreateSnapshotVMI(vmi *v1.VirtualMachineInstance) error {
+	l.domainModifyLock.Lock()
+	defer l.domainModifyLock.Unlock()
+
+	logger := log.Log.Object(vmi)
+
+	domName := util.VMINamespaceKeyFunc(vmi)
+	dom, err := l.virConn.LookupDomainByName(domName)
+	if err != nil {
+		// If the VirtualMachineInstance does not exist, we are done
+		if domainerrors.IsNotFound(err) {
+			return fmt.Errorf("Domain not found.")
+		} else {
+			logger.Reason(err).Error("Getting the domain failed during pause.")
+			return err
+		}
+	}
+	defer dom.Free()
+
+	domState, _, err := dom.GetState()
+	if err != nil {
+		logger.Reason(err).Error(failedGetDomainState)
+		return err
+	}
+
+	if domState == libvirt.DOMAIN_PAUSED {
+		snapshotXml := SnapshotXML{
+			Name: "vmphu-snapshot",
+		}
+		snapshotXmlBytes, err := xml.Marshal(snapshotXml)
+		if err != nil {
+			logger.Reason(err).Error(failedSnapshotCreation)
+			return err
+		}
+
+		snapshot, err := dom.CreateSnapshotXML(string(snapshotXmlBytes), 0)
+		if err != nil {
+			logger.Reason(err).Error(failedSnapshotCreation)
+			return err
+		}
+
+		snapshot.Free()
+		logger.Infof("vmphu snapshot created for %s", vmi.GetObjectMeta().GetName())
+
+	} else {
+		logger.Infof("Domain is not paused for %s", vmi.GetObjectMeta().GetName())
+	}
+
+	return nil
 }

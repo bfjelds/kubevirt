@@ -18,4 +18,5 @@ spec:
     resources:
       requests:
         memory: 1Gi
+  persistenceConfiguration: {}
   terminationGracePeriodSeconds: 0

@@ -56,6 +56,22 @@ func NewLifecycleHandler(recorder record.EventRecorder, vmiInformer cache.Shared
 	}
 }
 
+func (lh *LifecycleHandler) CreateSnapshotHandler(request *restful.Request, response *restful.Response) {
+	vmi, client, err := lh.getVMILauncherClient(request, response)
+	if err != nil {
+		return
+	}
+
+	err = client.CreateSnapshotVirtualMachine(vmi)
+	if err != nil {
+		log.Log.Object(vmi).Reason(err).Error("Failed to create snapshot for VMI")
+		response.WriteError(http.StatusInternalServerError, err)
+		return
+	}
+
+	response.WriteHeader(http.StatusAccepted)
+}
+
 func (lh *LifecycleHandler) PrepareMemoryHandler(request *restful.Request, response *restful.Response) {
 	vmi, client, err := lh.getVMILauncherClient(request, response)
 	if err != nil {
