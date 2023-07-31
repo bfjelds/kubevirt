@@ -1596,3 +1596,45 @@ func (app *SubresourceAPIApp) RemoveMemoryDumpVMRequestHandler(request *restful.
 
 	response.WriteHeader(http.StatusAccepted)
 }
+
+// VMICreateSnapshotRequestHandler handles the subresource for preserving VMI.
+func (app *SubresourceAPIApp) VMICreateSnapshotRequestHandler(request *restful.Request, response *restful.Response) {
+	validate := func(vmi *v1.VirtualMachineInstance) *errors.StatusError {
+		// TODO: is any validation needed?
+		return nil
+	}
+
+	getURL := func(vmi *v1.VirtualMachineInstance, conn kubecli.VirtHandlerConn) (string, error) {
+		return conn.CreateSnapshotURI(vmi)
+	}
+
+	app.putRequestHandler(request, response, validate, getURL, false)
+}
+
+// VMIPrepareMemoryRequestHandler handles the subresource for preserving VMI.
+func (app *SubresourceAPIApp) VMIPrepareMemoryRequestHandler(request *restful.Request, response *restful.Response) {
+	validate := func(vmi *v1.VirtualMachineInstance) *errors.StatusError {
+		// TODO: is any validation needed?
+		return nil
+	}
+
+	getURL := func(vmi *v1.VirtualMachineInstance, conn kubecli.VirtHandlerConn) (string, error) {
+		return conn.PrepareMemoryURI(vmi)
+	}
+
+	app.putRequestHandler(request, response, validate, getURL, false)
+}
+
+// VMIReleaseMemoryRequestHandler handles the subresource for preserving VMI.
+func (app *SubresourceAPIApp) VMIReleaseMemoryRequestHandler(request *restful.Request, response *restful.Response) {
+	validate := func(vmi *v1.VirtualMachineInstance) *errors.StatusError {
+		// TODO: only allow if VM/VMI is deleted?
+		return nil
+	}
+
+	getURL := func(vmi *v1.VirtualMachineInstance, conn kubecli.VirtHandlerConn) (string, error) {
+		return conn.ReleaseMemoryURI(vmi)
+	}
+
+	app.putRequestHandler(request, response, validate, getURL, false)
+}

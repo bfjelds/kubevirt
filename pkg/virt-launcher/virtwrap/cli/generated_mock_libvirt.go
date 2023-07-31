@@ -582,3 +582,25 @@ func (_m *MockVirDomain) CoreDumpWithFormat(to string, format libvirt.DomainCore
 func (_mr *_MockVirDomainRecorder) CoreDumpWithFormat(arg0, arg1, arg2 interface{}) *gomock.Call {
 	return _mr.mock.ctrl.RecordCall(_mr.mock, "CoreDumpWithFormat", arg0, arg1, arg2)
 }
+
+func (_m *MockVirDomain) SnapshotLookupByName(name string, flags uint32) (*libvirt.DomainSnapshot, error) {
+	ret := _m.ctrl.Call(_m, "SnapshotLookupByName", name, flags)
+	ret0, _ := ret[0].(*libvirt.DomainSnapshot)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+func (_mr *_MockVirDomainRecorder) SnapshotLookupByName(arg0, arg1 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "SnapshotLookupByName", arg0, arg1)
+}
+
+func (_m *MockVirDomain) CreateSnapshotXML(xml string, flags libvirt.DomainSnapshotCreateFlags) (*libvirt.DomainSnapshot, error) {
+	ret := _m.ctrl.Call(_m, "CreateSnapshotXML", xml, flags)
+	ret0, _ := ret[0].(*libvirt.DomainSnapshot)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+func (_mr *_MockVirDomainRecorder) CreateSnapshotXML(arg0, arg1 interface{}) *gomock.Call {
+	return _mr.mock.ctrl.RecordCall(_mr.mock, "CreateSnapshotXML", arg0, arg1)
+}

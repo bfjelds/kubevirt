@@ -485,6 +485,8 @@ type VirDomain interface {
 	AbortJob() error
 	Free() error
 	CoreDumpWithFormat(to string, format libvirt.DomainCoreDumpFormat, flags libvirt.DomainCoreDumpFlags) error
+	SnapshotLookupByName(name string, flags uint32) (*libvirt.DomainSnapshot, error)
+	CreateSnapshotXML(xml string, flags libvirt.DomainSnapshotCreateFlags) (*libvirt.DomainSnapshot, error)
 }
 
 func NewConnection(uri string, user string, pass string, checkInterval time.Duration) (Connection, error) {

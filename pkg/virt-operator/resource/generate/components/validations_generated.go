@@ -5977,6 +5977,17 @@ var CRDsValidation map[string]string = map[string]string{
                     the vmi to fit on a node. Selector which must match a node''s
                     labels for the vmi to be scheduled on that node. More info: https://kubernetes.io/docs/concepts/configuration/assign-pod-node/'
                   type: object
+                persistenceConfiguration:
+                  description: Persistence configuration for the VirtualMachineInstance.
+                  properties:
+                    persistenceVolume:
+                      description: Volume used for persistence
+                      type: string
+                    restoreStrategy:
+                      description: RestoreStrategy can be set to 'snapshotAvailable'
+                        to enable restore when a snapshot is available during VM start
+                      type: string
+                  type: object
                 priorityClassName:
                   description: If specified, indicates the pod's priority. If not
                     specified, the pod priority will be default or zero if there is
@@ -10155,6 +10166,17 @@ var CRDsValidation map[string]string = map[string]string{
           description: 'NodeSelector is a selector which must be true for the vmi
             to fit on a node. Selector which must match a node''s labels for the vmi
             to be scheduled on that node. More info: https://kubernetes.io/docs/concepts/configuration/assign-pod-node/'
+          type: object
+        persistenceConfiguration:
+          description: Persistence configuration for the VirtualMachineInstance.
+          properties:
+            persistenceVolume:
+              description: Volume used for persistence
+              type: string
+            restoreStrategy:
+              description: RestoreStrategy can be set to 'snapshotAvailable' to enable
+                restore when a snapshot is available during VM start
+              type: string
           type: object
         priorityClassName:
           description: If specified, indicates the pod's priority. If not specified,
@@ -14804,6 +14826,17 @@ var CRDsValidation map[string]string = map[string]string{
                     the vmi to fit on a node. Selector which must match a node''s
                     labels for the vmi to be scheduled on that node. More info: https://kubernetes.io/docs/concepts/configuration/assign-pod-node/'
                   type: object
+                persistenceConfiguration:
+                  description: Persistence configuration for the VirtualMachineInstance.
+                  properties:
+                    persistenceVolume:
+                      description: Volume used for persistence
+                      type: string
+                    restoreStrategy:
+                      description: RestoreStrategy can be set to 'snapshotAvailable'
+                        to enable restore when a snapshot is available during VM start
+                      type: string
+                  type: object
                 priorityClassName:
                   description: If specified, indicates the pod's priority. If not
                     specified, the pod priority will be default or zero if there is
@@ -18817,6 +18850,18 @@ var CRDsValidation map[string]string = map[string]string{
                             for the vmi to fit on a node. Selector which must match
                             a node''s labels for the vmi to be scheduled on that node.
                             More info: https://kubernetes.io/docs/concepts/configuration/assign-pod-node/'
+                          type: object
+                        persistenceConfiguration:
+                          description: Persistence configuration for the VirtualMachineInstance.
+                          properties:
+                            persistenceVolume:
+                              description: Volume used for persistence
+                              type: string
+                            restoreStrategy:
+                              description: RestoreStrategy can be set to 'snapshotAvailable'
+                                to enable restore when a snapshot is available during
+                                VM start
+                              type: string
                           type: object
                         priorityClassName:
                           description: If specified, indicates the pod's priority.
@@ -23547,6 +23592,18 @@ var CRDsValidation map[string]string = map[string]string{
                                 be true for the vmi to fit on a node. Selector which
                                 must match a node''s labels for the vmi to be scheduled
                                 on that node. More info: https://kubernetes.io/docs/concepts/configuration/assign-pod-node/'
+                              type: object
+                            persistenceConfiguration:
+                              description: Persistence configuration for the VirtualMachineInstance.
+                              properties:
+                                persistenceVolume:
+                                  description: Volume used for persistence
+                                  type: string
+                                restoreStrategy:
+                                  description: RestoreStrategy can be set to 'snapshotAvailable'
+                                    to enable restore when a snapshot is available
+                                    during VM start
+                                  type: string
                               type: object
                             priorityClassName:
                               description: If specified, indicates the pod's priority.

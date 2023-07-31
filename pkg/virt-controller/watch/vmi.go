@@ -121,6 +121,8 @@ const (
 	// MigrationBackoffReason is set when an error has occured while migrating
 	// and virt-controller is backing off before retrying.
 	MigrationBackoffReason = "MigrationBackoff"
+	// FailedPrepareMemoryReason is added when a prepare memory attempt fails
+	FailedPrepareMemoryReason = "FailedPrepareMemory"
 )
 
 const failedToRenderLaunchManifestErrFormat = "failed to render launch manifest: %v"
@@ -1050,6 +1052,7 @@ func (c *VMIController) sync(vmi *virtv1.VirtualMachineInstance, pod *k8sv1.Pod,
 			log.Log.V(3).Object(vmi).Infof("Delaying pod creation while DataVolume populates")
 			return nil
 		}
+
 		var templatePod *k8sv1.Pod
 		var err error
 		if isWaitForFirstConsumer {
@@ -1063,6 +1066,25 @@ func (c *VMIController) sync(vmi *virtv1.VirtualMachineInstance, pod *k8sv1.Pod,
 			return &syncErrorImpl{fmt.Errorf(failedToRenderLaunchManifestErrFormat, err), FailedPvcNotFoundReason}
 		} else if err != nil {
 			return &syncErrorImpl{fmt.Errorf(failedToRenderLaunchManifestErrFormat, err), FailedCreatePodReason}
+		}
+
+		if vmi.Spec.PersistenceConfiguration != nil && vmi.Spec.PersistenceConfiguration.PersistenceVolume != "" {
+			persistentMemoryLocation, err := c.clientset.VirtualMachineInstance(vmi.Namespace).PrepareMemory(context.Background(), vmi.Name)
+			if err != nil {
+				psaErr := fmt.Errorf("failed to prepare memory for for vmi %s/%s: %w", vmi.GetNamespace(), vmi.GetName(), err)
+				c.recorder.Eventf(vmi, k8sv1.EventTypeWarning, FailedPrepareMemoryReason, failedToRenderLaunchManifestErrFormat, psaErr)
+				return &syncErrorImpl{psaErr, FailedPrepareMemoryReason}
+			}
+			// Add persistent memory location to the virt-launcher pod spec
+			templatePod.Spec.Volumes = append(templatePod.Spec.Volumes, k8sv1.Volume{
+				Name: vmi.Spec.PersistenceConfiguration.PersistenceVolume,
+				VolumeSource: k8sv1.VolumeSource{
+					HostPath: &k8sv1.HostPathVolumeSource{
+						Path: persistentMemoryLocation,
+					},
+				},
+			})
+			log.Log.V(3).Object(vmi).Infof("Added volume: %+v as %s", persistentMemoryLocation, vmi.Spec.PersistenceConfiguration.PersistenceVolume)
 		}
 
 		vmiKey := controller.VirtualMachineInstanceKey(vmi)

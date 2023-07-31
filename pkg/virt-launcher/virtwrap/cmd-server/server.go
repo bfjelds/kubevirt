@@ -209,6 +209,64 @@ func (l *Launcher) PauseVirtualMachine(_ context.Context, request *cmdv1.VMIRequ
 	return response, nil
 }
 
+func (l *Launcher) CreateSnapshotVirtualMachine(_ context.Context, request *cmdv1.VMIRequest) (*cmdv1.Response, error) {
+
+	vmi, response := getVMIFromRequest(request.Vmi)
+	if !response.Success {
+		return response, nil
+	}
+
+	if err := l.domainManager.CreateSnapshotVMI(vmi); err != nil {
+		log.Log.Object(vmi).Reason(err).Errorf("Failed to create vmphu snapshot for vmi")
+		response.Success = false
+		response.Message = getErrorMessage(err)
+		return response, nil
+	}
+
+	log.Log.Object(vmi).Info("Created vmphus snapshot for vmi")
+	return response, nil
+}
+
+func (l *Launcher) PrepareMemoryVirtualMachine(_ context.Context, request *cmdv1.VMIRequest) (*cmdv1.Response, error) {
+
+	vmi, response := getVMIFromRequest(request.Vmi)
+	if !response.Success {
+		return response, nil
+	}
+
+	// TODO: invoke memory manager
+
+	// if err := l.domainManager.SaveVMI(vmi, request.PersistPath); err != nil {
+	// 	log.Log.Object(vmi).Reason(err).Errorf("Failed to save vmi")
+	// 	response.Success = false
+	// 	response.Message = getErrorMessage(err)
+	// 	return response, nil
+	// }
+
+	log.Log.Object(vmi).Info("Prepared memory for vmi")
+	return response, nil
+}
+
+func (l *Launcher) ReleaseMemoryVirtualMachine(_ context.Context, request *cmdv1.VMIRequest) (*cmdv1.Response, error) {
+
+	vmi, response := getVMIFromRequest(request.Vmi)
+	if !response.Success {
+		return response, nil
+	}
+
+	// TODO: invoke memory manager
+
+	// if err := l.domainManager.SaveVMI(vmi, request.PersistPath); err != nil {
+	// 	log.Log.Object(vmi).Reason(err).Errorf("Failed to save vmi")
+	// 	response.Success = false
+	// 	response.Message = getErrorMessage(err)
+	// 	return response, nil
+	// }
+
+	log.Log.Object(vmi).Info("Released memory for vmi")
+	return response, nil
+}
+
 func (l *Launcher) UnpauseVirtualMachine(_ context.Context, request *cmdv1.VMIRequest) (*cmdv1.Response, error) {
 	vmi, response := getVMIFromRequest(request.Vmi)
 	if !response.Success {
